@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PaperPilot — Agent-Native Research Workspace
 
-## Getting Started
+PaperPilot transforms academic research and literature review writing into a synchronized human-agent collaboration. Built for The WebMCP Challenge 2026.
 
-First, run the development server:
+## What It Does
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Research Phase:** Search arXiv, extract findings via regex heuristics, compare papers across dimensions, discover related work — all via structured WebMCP tools.
+- **Writing Phase:** Generate structured outlines, draft sections with citation placeholders, verify claims against sources, and suggest transitions — with the human retaining creative control.
+- **Provenance Tracking:** Live ratio of agent vs. human contribution with verified citation indicators.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Architecture
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **One Implementation, Two Callers:** Pure async actions in `src/actions/` called identically by React UI and WebMCP tools.
+- **WebMCP Tool Registration:** 11 tools registered via `useWebMCP` hook with Zod validation.
+- **Instant Reactive Sync:** DOM CustomEvents (`paperpilot:collections-changed`, `paperpilot:outlines-changed`) update React state in real-time.
+- **Zero Backend:** Direct arXiv API fetch with browser-native `DOMParser` + `localStorage` persistence.
+- **Demo Resilience:** Pre-seeded with 10 cached academic papers for offline/demo reliability.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## WebMCP Tool Catalog (11 Tools)
 
-## Learn More
+1. `search_papers` (read-only, untrusted content) — Search arXiv for papers
+2. `extract_findings` (read-only, untrusted content) — Extract research question, claims, methodology, limitations
+3. `compare_papers` (read-only) — Structured matrix comparing 2-5 papers
+4. `find_related` (read-only) — Find semantic neighbors within collection
+5. `add_to_collection` (mutation) — Save paper with annotation and rating
+6. `get_collection` (read-only) — Retrieve collection by ID
+7. `generate_outline` (mutation) — Generate outline for literature review, research article, or thesis chapter
+8. `draft_section` (mutation) — Draft section using collection papers and citation placeholders
+9. `insert_citation` (mutation) — Insert formatted APA citation into draft
+10. `verify_claim` (read-only) — Verify claim against source findings via keyword matching
+11. `suggest_transition` (read-only) — Suggest bridge sentence between sections
 
-To learn more about Next.js, take a look at the following resources:
+## Testing
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Open in Google Chrome 149+ with `chrome://flags/#enable-webmcp-testing` enabled, OR
+2. Open in the ChatGPT Desktop app in-app browser.
+3. Observe tool calls and instant UI synchronization.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
