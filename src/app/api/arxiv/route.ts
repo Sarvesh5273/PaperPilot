@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get('q') || '';
+  const query = (searchParams.get('q') || '').trim();
   const maxResults = searchParams.get('max') || '10';
-  
-  const arxivUrl = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${maxResults}&sortBy=submittedDate&sortOrder=descending`;
+  const arxivQuery = query.startsWith('id:') ? query : `all:${query}`;
+
+  const arxivUrl = `https://export.arxiv.org/api/query?search_query=${encodeURIComponent(arxivQuery)}&start=0&max_results=${maxResults}&sortBy=submittedDate&sortOrder=descending`;
   
   try {
     const controller = new AbortController();
