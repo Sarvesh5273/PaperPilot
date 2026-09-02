@@ -1,6 +1,7 @@
 import { PaperOutline, PaperSection, CollectionPaper } from '@/types';
 import { loadCollections, loadOutlines, saveOutlines } from '@/lib/storage';
 import { formatAPACitation, formatInTextCitation } from '@/lib/citations';
+import { generateDraftWithGemini } from '@/lib/gemini';
 
 const OUTLINE_TEMPLATES: Record<'literature_review' | 'research_article' | 'thesis_chapter', string[]> = {
   literature_review: ['Introduction', 'Related Work', 'Thematic Analysis', 'Critical Discussion', 'Conclusion'],
@@ -90,35 +91,52 @@ export async function draftSectionAction(
   const collection = collections.find(c => c.id === outline?.collectionId || c.name.toLowerCase() === arg2.toLowerCase()) || collections[0];
   const papers: CollectionPaper[] = collection?.papers.slice(0, 3) || [];
 
-  const usable = (value: string | undefined, fallback: string) => {
-    const normalized = value?.trim();
-    return normalized && normalized !== 'Not explicitly stated' ? normalized.replace(/\s+/g, ' ') : fallback;
-  };
-  const authorName = (paper: CollectionPaper) => paper.authors[0]?.trim().split(/\s+/).pop() || 'The authors';
-  const year = (paper: CollectionPaper) => paper.published.split('-')[0] || 'n.d.';
-  const evidence = (paper: CollectionPaper) => usable(
-    paper.extractedFindings?.keyClaims.find(claim => claim !== 'Not explicitly stated'),
-    usable(
-      paper.extractedFindings?.conclusionSummary,
-      usable(paper.abstract, `the paper examines ${paper.title.toLowerCase()}`)
-    )
-  );
+  let draft = '';
 
-  let draft: string;
-  if (papers.length === 0) {
-    draft = `This section introduces ${section.title.toLowerCase()} and establishes the concepts that guide the discussion. Add papers to the collection to ground this overview in specific evidence.`;
-  } else {
-    const sourceSentences = papers.map(p =>
-      `${authorName(p)} (${year(p)}) reports that ${evidence(p)} ({{${p.id}}}).`
+  try {
+    draft = await generateDraftWithGemini(
+      section.title,
+      tone,
+      papers.map(p => ({
+        title: p.title,
+        authors: p.authors,
+        abstract: p.abstract,
+        published: p.published,
+        id: p.id,
+      }))
     );
-    const opening = `This section considers ${section.title.toLowerCase()} through ${papers.length} selected source${papers.length === 1 ? '' : 's'}.`;
-    if (tone === 'critical') {
-      const limitation = usable(papers[0].extractedFindings?.limitations?.[0], 'its scope remains bounded by the available evidence');
-      draft = `${opening} ${sourceSentences.join(' ')} However, ${limitation}; this limitation should be considered when interpreting the findings.`;
-    } else if (tone === 'synthesis') {
-      draft = `${opening} ${sourceSentences.join(' ')} Taken together, these findings frame ${section.title.toLowerCase()} as an area shaped by complementary evidence rather than a single definitive account.`;
+  } catch (err) {
+    console.warn('[Gemini failed, using template fallback]:', err);
+
+    const usable = (value: string | undefined, fallback: string) => {
+      const normalized = value?.trim();
+      return normalized && normalized !== 'Not explicitly stated' ? normalized.replace(/\s+/g, ' ') : fallback;
+    };
+    const authorName = (paper: CollectionPaper) => paper.authors[0]?.trim().split(/\s+/).pop() || 'The authors';
+    const year = (paper: CollectionPaper) => paper.published.split('-')[0] || 'n.d.';
+    const evidence = (paper: CollectionPaper) => usable(
+      paper.extractedFindings?.keyClaims.find(claim => claim !== 'Not explicitly stated'),
+      usable(
+        paper.extractedFindings?.conclusionSummary,
+        usable(paper.abstract, `the paper examines ${paper.title.toLowerCase()}`)
+      )
+    );
+
+    if (papers.length === 0) {
+      draft = `This section introduces ${section.title.toLowerCase()} and establishes the concepts that guide the discussion. Add papers to the collection to ground this overview in specific evidence.`;
     } else {
-      draft = `${opening} ${sourceSentences.join(' ')} These findings provide a basis for the analysis that follows.`;
+      const sourceSentences = papers.map(p =>
+        `${authorName(p)} (${year(p)}) reports that ${evidence(p)} ({{${p.id}}}).`
+      );
+      const opening = `This section considers ${section.title.toLowerCase()} through ${papers.length} selected source${papers.length === 1 ? '' : 's'}.`;
+      if (tone === 'critical') {
+        const limitation = usable(papers[0].extractedFindings?.limitations?.[0], 'its scope remains bounded by the available evidence');
+        draft = `${opening} ${sourceSentences.join(' ')} However, ${limitation}; this limitation should be considered when interpreting the findings.`;
+      } else if (tone === 'synthesis') {
+        draft = `${opening} ${sourceSentences.join(' ')} Taken together, these findings frame ${section.title.toLowerCase()} as an area shaped by complementary evidence rather than a single definitive account.`;
+      } else {
+        draft = `${opening} ${sourceSentences.join(' ')} These findings provide a basis for the analysis that follows.`;
+      }
     }
   }
 
