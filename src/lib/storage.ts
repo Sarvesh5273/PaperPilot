@@ -157,3 +157,28 @@ export function loadOutlines(): PaperOutline[] {
     return [];
   }
 }
+
+export function logToolCall(name: string, input: unknown, output: unknown, latencyMs: number) {
+  if (typeof window === 'undefined') return;
+  const logs = JSON.parse(localStorage.getItem('paperpilot_agent_logs') || '[]');
+  logs.push({
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    toolName: name,
+    input: (input || {}) as Record<string, unknown>,
+    output: (output || {}) as Record<string, unknown>,
+    latencyMs,
+    duration: latencyMs,
+    timestamp: new Date().toISOString(),
+  });
+  localStorage.setItem('paperpilot_agent_logs', JSON.stringify(logs.slice(-50)));
+  window.dispatchEvent(new CustomEvent('paperpilot:logs-changed'));
+}
+
+export function loadToolLogs() {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem('paperpilot_agent_logs') || '[]');
+  } catch {
+    return [];
+  }
+}

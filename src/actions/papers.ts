@@ -3,14 +3,17 @@ import { searchArxiv, fetchPaperAbstract } from '@/lib/arxiv';
 import { loadCollections, saveCollections } from '@/lib/storage';
 
 export async function searchPapersAction(
-  query: string,
+  queryOrInput: string | { query: string; max_results?: number },
   maxResults = 10
 ): Promise<{ papers: Paper[]; query: string; resultCount: number }> {
+  const query = typeof queryOrInput === 'string' ? queryOrInput : queryOrInput?.query || '';
+  const limit = typeof queryOrInput === 'object' && queryOrInput?.max_results ? queryOrInput.max_results : maxResults;
+
   if (!query || !query.trim()) {
     throw new Error('Search query cannot be empty.');
   }
   try {
-    const papers = await searchArxiv(query.trim(), maxResults);
+    const papers = await searchArxiv(query.trim(), limit);
     return { papers, query: query.trim(), resultCount: papers.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -18,7 +21,7 @@ export async function searchPapersAction(
   }
 }
 
-export async function extractFindingsAction(paperId: string): Promise<ExtractedFindings> {
+export async function extractFindingsAction(paperId: string, _depth?: string): Promise<ExtractedFindings> {
   if (!paperId || !paperId.trim()) {
     throw new Error('Paper ID cannot be empty.');
   }
@@ -145,8 +148,12 @@ export async function comparePapersAction(
 
 export async function findRelatedAction(
   paperId: string,
+  relationType: string | number = 'semantic_neighbors',
   maxResults = 5
 ): Promise<{ relatedPapers: Array<{ id: string; title: string; relation: string; relevanceScore: number }> }> {
+  const limit = typeof relationType === 'number' ? relationType : maxResults;
+  const rel = typeof relationType === 'string' ? relationType : 'semantic_neighbors';
+
   const collections = loadCollections();
   const allPapers = collections.flatMap(c => c.papers);
   const source = allPapers.find(p => p.id === paperId);
@@ -164,10 +171,10 @@ export async function findRelatedAction(
     return {
       id: p.id,
       title: p.title,
-      relation: 'semantic_neighbor',
+      relation: rel,
       relevanceScore: parseFloat(score.toFixed(2)),
     };
-  }).sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, maxResults);
+  }).sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, limit);
 
   return { relatedPapers: related };
 }
@@ -186,7 +193,7 @@ export async function addToCollectionAction(
 
   const normalizedId = paperId.trim();
   const collections = loadCollections();
-  let collection = collections.find(c => c.name === collectionName);
+  let collection = collections.find(c => c.name.toLowerCase() === collectionName.toLowerCase() || c.id === collectionName);
   if (!collection) {
     collection = {
       id: `col-${Date.now()}`,
@@ -252,14 +259,16 @@ export async function addToCollectionAction(
   };
 }
 
-export async function getCollectionAction(collectionId: string): Promise<PaperCollection | null> {
-  if (!collectionId || !collectionId.trim()) {
-    throw new Error('Collection ID cannot be empty.');
+export async function getCollectionAction(collectionIdOrName: string): Promise<PaperCollection | null> {
+  if (!collectionIdOrName || !collectionIdOrName.trim()) {
+    throw new Error('Collection identifier cannot be empty.');
   }
   const collections = loadCollections();
-  const collection = collections.find(c => c.id === collectionId);
+  const collection = collections.find(
+    c => c.id === collectionIdOrName || c.name.toLowerCase() === collectionIdOrName.toLowerCase()
+  );
   if (!collection) {
-    throw new Error(`Collection with ID ${collectionId} not found.`);
+    throw new Error(`Collection "${collectionIdOrName}" not found.`);
   }
   return collection;
 }

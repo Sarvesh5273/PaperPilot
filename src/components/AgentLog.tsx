@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Terminal, Trash2 } from 'lucide-react';
-import { useWebMCPContext } from '@/components/WebMCPProvider';
+import { useAgentLog } from '@/hooks/useAgentLog';
 
 export function AgentLog() {
-  const { logs, clearLogs } = useWebMCPContext();
+  const { logs, clearLogs } = useAgentLog();
 
   return (
     <div className="flex flex-col h-full space-y-4">

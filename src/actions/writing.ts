@@ -9,17 +9,19 @@ const OUTLINE_TEMPLATES: Record<'literature_review' | 'research_article' | 'thes
 };
 
 export async function generateOutlineAction(
-  collectionId: string,
+  collectionIdOrName: string,
   paperType: 'research_article' | 'literature_review' | 'thesis_chapter' = 'literature_review'
 ): Promise<PaperOutline> {
-  if (!collectionId || !collectionId.trim()) {
-    throw new Error('Collection ID cannot be empty.');
+  if (!collectionIdOrName || !collectionIdOrName.trim()) {
+    throw new Error('Collection identifier cannot be empty.');
   }
 
   const collections = loadCollections();
-  const collection = collections.find(c => c.id === collectionId);
+  const collection = collections.find(
+    c => c.id === collectionIdOrName || c.name.toLowerCase() === collectionIdOrName.toLowerCase()
+  );
   if (!collection) {
-    throw new Error(`Collection with ID ${collectionId} not found.`);
+    throw new Error(`Collection "${collectionIdOrName}" not found.`);
   }
 
   const templateSections = OUTLINE_TEMPLATES[paperType] || OUTLINE_TEMPLATES.literature_review;
@@ -37,7 +39,7 @@ export async function generateOutlineAction(
     id: `outline-${Date.now()}`,
     title: `${collection.name} — ${paperType.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}`,
     sections,
-    collectionId,
+    collectionId: collection.id,
     createdAt: new Date().toISOString(),
   };
 
@@ -47,34 +49,48 @@ export async function generateOutlineAction(
 }
 
 export async function draftSectionAction(
-  outlineId: string,
-  sectionId: string,
-  tone: 'academic' | 'critical' | 'synthesis' = 'academic'
+  arg1: string,
+  arg2: string,
+  arg3?: 'academic' | 'critical' | 'synthesis'
 ): Promise<{ draft: string; citationsUsed: string[] }> {
-  if (!outlineId || !outlineId.trim()) {
-    throw new Error('Outline ID cannot be empty.');
-  }
-  if (!sectionId || !sectionId.trim()) {
-    throw new Error('Section ID cannot be empty.');
-  }
+  if (!arg1 || !arg1.trim()) throw new Error('Section or Outline ID cannot be empty.');
+  if (!arg2 || !arg2.trim()) throw new Error('Section ID or Collection name cannot be empty.');
 
   const outlines = loadOutlines();
-  const outline = outlines.find(o => o.id === outlineId);
-  if (!outline) {
-    throw new Error(`Outline with ID ${outlineId} not found.`);
+  let outline: PaperOutline | undefined;
+  let section: PaperSection | undefined;
+
+  // Check if arg1 is outlineId and arg2 is sectionId
+  const outlineById = outlines.find(o => o.id === arg1);
+  if (outlineById) {
+    outline = outlineById;
+    section = outline.sections.find(s => s.id === arg2);
   }
 
-  const section = outline.sections.find(s => s.id === sectionId);
+  // If not found, check if arg1 is sectionId directly across outlines
   if (!section) {
-    throw new Error(`Section ${sectionId} not found in outline ${outlineId}.`);
+    for (const o of outlines) {
+      const foundSec = o.sections.find(s => s.id === arg1);
+      if (foundSec) {
+        outline = o;
+        section = foundSec;
+        break;
+      }
+    }
   }
+
+  if (!outline || !section) {
+    throw new Error(`Section "${arg1}" or "${arg2}" not found in any outline.`);
+  }
+
+  const tone: 'academic' | 'critical' | 'synthesis' =
+    arg3 || (['academic', 'critical', 'synthesis'].includes(arg2) ? (arg2 as 'academic' | 'critical' | 'synthesis') : 'academic');
 
   const collections = loadCollections();
-  const collection = collections.find(c => c.id === outline.collectionId);
+  const collection = collections.find(c => c.id === outline?.collectionId || c.name.toLowerCase() === arg2.toLowerCase()) || collections[0];
   const papers: CollectionPaper[] = collection?.papers.slice(0, 3) || [];
 
   let draft = '';
-
   if (tone === 'academic') {
     if (papers.length === 0) {
       draft = `This section examines key theoretical arguments and empirical evidence relevant to ${section.title.toLowerCase()}. Further literature will be synthesized as papers are added to the collection.`;
@@ -109,7 +125,6 @@ export async function draftSectionAction(
       draft = `Critical analysis of current methodologies in ${section.title.toLowerCase()} indicates key trade-offs between theoretical completeness and practical deployability.`;
     }
   } else {
-    // synthesis tone
     if (papers.length > 0) {
       const contributions = papers.map(p => {
         const author = p.authors[0]?.trim().split(' ').pop() || 'Author';
@@ -136,38 +151,61 @@ export async function draftSectionAction(
 }
 
 export async function insertCitationAction(
-  outlineId: string,
-  sectionId: string,
-  paperId: string,
-  placeholder: string
+  arg1: string,
+  arg2?: string,
+  arg3?: string,
+  arg4?: string
 ): Promise<{ formattedCitation: string; inText: string }> {
-  if (!outlineId || !outlineId.trim()) {
-    throw new Error('Outline ID cannot be empty.');
-  }
-  if (!sectionId || !sectionId.trim()) {
-    throw new Error('Section ID cannot be empty.');
-  }
-  if (!paperId || !paperId.trim()) {
-    throw new Error('Paper ID cannot be empty.');
-  }
-
   const outlines = loadOutlines();
-  const outline = outlines.find(o => o.id === outlineId);
-  if (!outline) {
-    throw new Error(`Outline with ID ${outlineId} not found.`);
+  let outline: PaperOutline | undefined;
+  let section: PaperSection | undefined;
+
+  // Case A: 4 args: (outlineId, sectionId, paperId, placeholder)
+  if (arg3 && arg4) {
+    outline = outlines.find(o => o.id === arg1);
+    section = outline?.sections.find(s => s.id === arg2);
+  } else {
+    // Case B: 2 args: (sectionId, collectionName)
+    for (const o of outlines) {
+      const foundSec = o.sections.find(s => s.id === arg1);
+      if (foundSec) {
+        outline = o;
+        section = foundSec;
+        break;
+      }
+    }
   }
 
-  const section = outline.sections.find(s => s.id === sectionId);
-  if (!section) {
-    throw new Error(`Section ${sectionId} not found in outline ${outlineId}.`);
+  if (!outline || !section) {
+    throw new Error(`Section "${arg1}" not found in any outline.`);
   }
 
   const collections = loadCollections();
-  const collection = collections.find(c => c.id === outline.collectionId);
-  const paper = collection?.papers.find(p => p.id === paperId) || collections.flatMap(c => c.papers).find(p => p.id === paperId);
+  const allPapers = collections.flatMap(c => c.papers);
 
+  let paperId = arg3;
+  let placeholder = arg4;
+
+  // If paperId not specified in args, extract from placeholders in section text
+  if (!paperId) {
+    const text = section.humanEdit || section.agentDraft || '';
+    const match = text.match(/\{\{([^}]+)\}\}/);
+    if (match) {
+      paperId = match[1];
+      placeholder = match[0];
+    } else if (allPapers.length > 0) {
+      paperId = allPapers[0].id;
+      placeholder = `{{${paperId}}}`;
+    }
+  }
+
+  if (!paperId) {
+    throw new Error('No paper ID found to insert citation.');
+  }
+
+  const paper = allPapers.find(p => p.id === paperId);
   if (!paper) {
-    throw new Error(`Paper ${paperId} not found in any collection for citation.`);
+    throw new Error(`Paper ${paperId} not found in any collection.`);
   }
 
   const inText = formatInTextCitation(paper.authors, paper.published.split('-')[0]);
@@ -179,8 +217,7 @@ export async function insertCitationAction(
     section.humanEdit = section.humanEdit ? `${section.humanEdit} ${inText}` : inText;
   }
 
-  const existingCitation = section.citations.find(c => c.paperId === paperId);
-  if (!existingCitation) {
+  if (!section.citations.some(c => c.paperId === paperId)) {
     section.citations.push({ paperId, placeholder: placeholder || `{{${paperId}}}`, formatted });
   }
 
@@ -189,33 +226,28 @@ export async function insertCitationAction(
 }
 
 export async function verifyClaimAction(
-  outlineId: string,
-  sectionId: string,
-  claimText: string,
-  paperId: string
+  arg1: string,
+  arg2: string,
+  arg3: string,
+  arg4?: string
 ): Promise<{ verified: boolean; confidence: 'high' | 'medium' | 'low'; evidence: string }> {
-  if (!outlineId || !outlineId.trim()) {
-    throw new Error('Outline ID cannot be empty.');
-  }
-  if (!sectionId || !sectionId.trim()) {
-    throw new Error('Section ID cannot be empty.');
-  }
-  if (!claimText || !claimText.trim()) {
-    throw new Error('Claim text cannot be empty.');
-  }
-  if (!paperId || !paperId.trim()) {
-    throw new Error('Paper ID cannot be empty.');
+  let sectionId = arg1;
+  let claimText = arg2;
+  let paperId = arg3;
+
+  // If 4 args: (outlineId, sectionId, claimText, paperId)
+  if (arg4) {
+    sectionId = arg2;
+    claimText = arg3;
+    paperId = arg4;
   }
 
-  const outlines = loadOutlines();
-  const outline = outlines.find(o => o.id === outlineId);
-  if (!outline) {
-    throw new Error(`Outline with ID ${outlineId} not found.`);
-  }
+  if (!claimText || !claimText.trim()) throw new Error('Claim text cannot be empty.');
+  if (!paperId || !paperId.trim()) throw new Error('Paper ID cannot be empty.');
 
   const collections = loadCollections();
-  const collection = collections.find(c => c.id === outline.collectionId);
-  const paper = collection?.papers.find(p => p.id === paperId) || collections.flatMap(c => c.papers).find(p => p.id === paperId);
+  const allPapers = collections.flatMap(c => c.papers);
+  const paper = allPapers.find(p => p.id === paperId);
 
   if (!paper) {
     throw new Error(`Paper ${paperId} not found in any collection for claim verification.`);
@@ -267,36 +299,37 @@ export async function verifyClaimAction(
 }
 
 export async function suggestTransitionAction(
-  outlineId: string,
-  fromSectionId: string,
-  toSectionId: string
+  arg1: string,
+  arg2: string,
+  arg3?: string
 ): Promise<{ transitionText: string }> {
-  if (!outlineId || !outlineId.trim()) {
-    throw new Error('Outline ID cannot be empty.');
-  }
-  if (!fromSectionId || !fromSectionId.trim()) {
-    throw new Error('Preceding section ID cannot be empty.');
-  }
-  if (!toSectionId || !toSectionId.trim()) {
-    throw new Error('Succeeding section ID cannot be empty.');
+  let fromSectionId = arg1;
+  let toSectionId = arg2;
+
+  // If 3 args: (outlineId, fromSectionId, toSectionId)
+  if (arg3) {
+    fromSectionId = arg2;
+    toSectionId = arg3;
   }
 
   const outlines = loadOutlines();
-  const outline = outlines.find(o => o.id === outlineId);
-  if (!outline) {
-    throw new Error(`Outline with ID ${outlineId} not found.`);
+  let fromSection: PaperSection | undefined;
+  let toSection: PaperSection | undefined;
+
+  for (const o of outlines) {
+    const s1 = o.sections.find(s => s.id === fromSectionId);
+    const s2 = o.sections.find(s => s.id === toSectionId);
+    if (s1) fromSection = s1;
+    if (s2) toSection = s2;
+    if (fromSection && toSection) break;
   }
 
-  const fromSection = outline.sections.find(s => s.id === fromSectionId);
-  const toSection = outline.sections.find(s => s.id === toSectionId);
-
   if (!fromSection || !toSection) {
-    throw new Error(`Section ${!fromSection ? fromSectionId : toSectionId} not found in outline ${outlineId}.`);
+    throw new Error(`Section "${fromSectionId}" or "${toSectionId}" not found in outlines.`);
   }
 
   const fromTitle = fromSection.title.toLowerCase();
   const toTitle = toSection.title.toLowerCase();
-
   const transitionText = `Building on the discussion of ${fromTitle}, we now turn our attention to ${toTitle}. This progression connects foundational observations with subsequent analytical developments.`;
 
   return { transitionText };
