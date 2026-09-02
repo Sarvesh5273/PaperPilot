@@ -9,7 +9,9 @@ export function WebMCPStatus() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isAvailable = !!(window as unknown as { modelContext?: unknown }).modelContext || !!(typeof document !== 'undefined' && (document as unknown as { modelContext?: unknown }).modelContext);
+      const isAvailable =
+        !!(window as unknown as { modelContext?: unknown }).modelContext ||
+        !!(typeof document !== 'undefined' && (document as unknown as { modelContext?: unknown }).modelContext);
       setHasWebMCP(isAvailable);
     }
   }, []);
@@ -25,7 +27,7 @@ export function WebMCPStatus() {
       <div className="flex items-center gap-2">
         {hasWebMCP ? (
           <Badge variant="outline" className="bg-emerald-950/40 text-emerald-400 border-emerald-800 flex items-center gap-1.5 py-1 px-2.5">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
             🤖 Agent Tools Ready (WebMCP Active)
           </Badge>
         ) : (
