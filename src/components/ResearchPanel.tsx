@@ -33,7 +33,7 @@ export function ResearchPanel() {
 
   const handleAdd = async (paper: Paper) => {
     try {
-      await addToCollectionAction(paper.id, 'Default', paper.abstract.slice(0, 100), 4);
+      await addToCollectionAction(paper.id, 'WebMCP Security', '', 3);
       setAddedIds((prev) => ({ ...prev, [paper.id]: true }));
     } catch (err) {
       console.error('Failed to add paper', err);

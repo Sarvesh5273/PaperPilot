@@ -1,55 +1,50 @@
 'use client';
 
-import React from 'react';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import { useState } from 'react';
 import { useCollections } from '@/hooks/useCollections';
-import { Quote } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface CitationPickerProps {
-  onSelectCitation: (paperId: string) => void;
-  disabled?: boolean;
+  onSelect: (paperId: string) => void;
 }
 
-export function CitationPicker({ onSelectCitation, disabled }: CitationPickerProps) {
+export function CitationPicker({ onSelect }: CitationPickerProps) {
   const collections = useCollections();
-  const allPapers = collections.flatMap((c) => c.papers);
-
+  const [selectedId, setSelectedId] = useState('');
+  
+  const allPapers = collections.flatMap(c => c.papers);
+  
+  const handleInsert = () => {
+    if (selectedId) {
+      onSelect(selectedId);
+      setSelectedId('');
+    }
+  };
+  
+  if (allPapers.length === 0) return null;
+  
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        disabled={disabled || allPapers.length === 0}
-        className="h-7 text-xs border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 rounded px-2.5 inline-flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    <div className="flex items-center gap-2">
+      <select 
+        value={selectedId}
+        onChange={(e) => setSelectedId(e.target.value)}
+        className="bg-neutral-800 text-neutral-100 border border-neutral-700 rounded px-3 py-2 text-sm min-w-[200px]"
       >
-        <Quote className="w-3 h-3 mr-1 text-blue-400" />
-        Insert Citation
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72 bg-neutral-900 border-neutral-800 text-neutral-200">
-        <DropdownMenuLabel className="text-xs text-neutral-400">Available Papers</DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-neutral-800" />
-        {allPapers.length === 0 ? (
-          <div className="p-2 text-xs text-neutral-500">No papers in collection</div>
-        ) : (
-          allPapers.map((p) => (
-            <DropdownMenuItem
-              key={p.id}
-              onClick={() => onSelectCitation(p.id)}
-              className="text-xs flex flex-col items-start gap-0.5 cursor-pointer hover:bg-neutral-800 focus:bg-neutral-800"
-            >
-              <span className="font-medium text-neutral-200 line-clamp-1">{p.title}</span>
-              <span className="text-[10px] text-neutral-400 font-mono">
-                {p.authors[0]?.split(' ').pop()} • arXiv:{p.id}
-              </span>
-            </DropdownMenuItem>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <option value="">Select paper to cite...</option>
+        {allPapers.map(paper => (
+          <option key={paper.id} value={paper.id}>
+            {paper.authors[0]?.split(' ').pop()} et al. ({paper.published.split('-')[0]})
+          </option>
+        ))}
+      </select>
+      <Button 
+        onClick={handleInsert} 
+        disabled={!selectedId}
+        variant="outline"
+        size="sm"
+      >
+        Insert
+      </Button>
+    </div>
   );
 }

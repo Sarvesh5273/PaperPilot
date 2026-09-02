@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { PaperOutline, PaperSection } from '@/types';
-import { draftSectionAction, insertCitationAction, verifyClaimAction, suggestTransitionAction } from '@/actions/writing';
-import { saveOutlines, loadOutlines } from '@/lib/storage';
+import { draftSectionAction, verifyClaimAction, suggestTransitionAction } from '@/actions/writing';
+import { saveOutlines, loadOutlines, loadCollections } from '@/lib/storage';
+import { formatInTextCitation, formatAPACitation } from '@/lib/citations';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CitationPicker } from './CitationPicker';
 import { Sparkles, Check, ShieldCheck, ArrowRight } from 'lucide-react';
@@ -21,12 +22,11 @@ interface SectionCardProps {
 
 export function SectionCard({ outline, section, nextSectionId }: SectionCardProps) {
   const [tab, setTab] = useState<'draft' | 'edit' | 'preview'>('edit');
-  const [verificationResult, setVerificationResult] = useState<string | null>(null);
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
 
-  const updateSectionText = (text: string) => {
+  const updateText = (text: string) => {
     const outlines = loadOutlines();
-    const curOutline = outlines.find((o) => o.id === outline.id);
-    const curSec = curOutline?.sections.find((s) => s.id === section.id);
+    const curSec = outlines.find(o => o.id === outline.id)?.sections.find(s => s.id === section.id);
     if (curSec) {
       curSec.humanEdit = text;
       if (curSec.status === 'draft') curSec.status = 'editing';
@@ -34,51 +34,45 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
     }
   };
 
-  const handleDraft = async (tone: 'academic' | 'critical' | 'synthesis' = 'academic') => {
-    await draftSectionAction(outline.id, section.id, tone);
-  };
-
-  const handleInsertCitation = async (paperId: string) => {
+  const handleInsertCitation = (paperId: string) => {
     const placeholder = `{{${paperId}}}`;
-    await insertCitationAction(outline.id, section.id, paperId, placeholder);
+    updateText(section.humanEdit ? `${section.humanEdit} ${placeholder}` : placeholder);
+    const outlines = loadOutlines();
+    const curSec = outlines.find(o => o.id === outline.id)?.sections.find(s => s.id === section.id);
+    const paper = loadCollections().flatMap(c => c.papers).find(p => p.id === paperId);
+    if (curSec && paper && !curSec.citations.some(c => c.paperId === paperId)) {
+      curSec.citations.push({ paperId, placeholder, formatted: formatAPACitation(paper) });
+      saveOutlines(outlines);
+    }
   };
 
   const handleVerify = async () => {
     const paperId = section.citations[0]?.paperId;
-    if (!paperId) {
-      setVerificationResult('⚠️ No paper cited yet to verify against.');
-      return;
-    }
+    if (!paperId) return setVerifyMsg('⚠️ No paper cited yet to verify against.');
     const res = await verifyClaimAction(outline.id, section.id, section.humanEdit.slice(0, 200), paperId);
-    setVerificationResult(`${res.verified ? '✅' : '⚠️'} [${res.confidence.toUpperCase()}] ${res.evidence}`);
+    setVerifyMsg(`${res.verified ? '✅' : '⚠️'} [${res.confidence.toUpperCase()}] ${res.evidence}`);
   };
 
   const handleTransition = async () => {
     if (!nextSectionId) return;
     const res = await suggestTransitionAction(outline.id, section.id, nextSectionId);
-    updateSectionText(`${section.humanEdit}\n\n${res.transitionText}`);
+    updateText(`${section.humanEdit}\n\n${res.transitionText}`);
   };
 
   const handleApprove = () => {
     const outlines = loadOutlines();
-    const curOutline = outlines.find((o) => o.id === outline.id);
-    const curSec = curOutline?.sections.find((s) => s.id === section.id);
+    const curSec = outlines.find(o => o.id === outline.id)?.sections.find(s => s.id === section.id);
     if (curSec) {
       curSec.status = curSec.status === 'approved' ? 'editing' : 'approved';
       saveOutlines(outlines);
     }
   };
 
-  const renderAgentDraft = () => {
-    if (!section.agentDraft) return <p className="text-neutral-500 italic">No agent draft generated yet.</p>;
-    return section.agentDraft.split(/(\{\{[^}]+\}\})/).map((chunk, i) =>
-      chunk.startsWith('{{') ? (
-        <span key={i} className="bg-amber-500/20 text-amber-300 font-mono px-1 py-0.5 rounded">{chunk}</span>
-      ) : (
-        <span key={i}>{chunk}</span>
-      )
-    );
-  };
+  const allPapers = loadCollections().flatMap(c => c.papers);
+  const previewText = (section.humanEdit || section.agentDraft || '').replace(/\{\{([^}]+)\}\}/g, (m, id) => {
+    const p = allPapers.find(paper => paper.id === id);
+    return p ? formatInTextCitation(p.authors, p.published.split('-')[0]) : m;
+  });
 
   return (
     <Card className="bg-neutral-900 border-neutral-800 flex flex-col space-y-2 p-3">
@@ -93,10 +87,10 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => handleDraft('academic')} className="h-7 text-xs border-neutral-700">
+          <Button size="sm" variant="outline" onClick={() => draftSectionAction(outline.id, section.id, 'academic')} className="h-7 text-xs border-neutral-700">
             <Sparkles className="w-3 h-3 mr-1 text-amber-400" /> Draft
           </Button>
-          <CitationPicker onSelectCitation={handleInsertCitation} />
+          <CitationPicker onSelect={handleInsertCitation} />
           <Button size="sm" variant={section.status === 'approved' ? 'default' : 'secondary'} onClick={handleApprove} className="h-7 text-xs">
             <Check className="w-3 h-3 mr-1" /> {section.status === 'approved' ? 'Approved' : 'Approve'}
           </Button>
@@ -111,19 +105,23 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
             <TabsTrigger value="preview" className="text-xs">Final Preview</TabsTrigger>
           </TabsList>
           <TabsContent value="draft" className="m-0 pt-2 text-xs leading-relaxed text-neutral-300 min-h-[160px] max-h-[220px] overflow-y-auto">
-            {renderAgentDraft()}
+            {!section.agentDraft ? <p className="text-neutral-500 italic">No agent draft generated yet.</p> :
+              section.agentDraft.split(/(\{\{[^}]+\}\})/).map((chunk, i) => chunk.startsWith('{{') ?
+                <span key={i} className="bg-amber-500/20 text-amber-300 font-mono px-1 py-0.5 rounded">{chunk}</span> :
+                <span key={i}>{chunk}</span>
+              )}
           </TabsContent>
           <TabsContent value="edit" className="m-0 pt-2 flex flex-col space-y-1">
             <Textarea
               value={section.humanEdit}
-              onChange={(e) => updateSectionText(e.target.value)}
+              onChange={(e) => updateText(e.target.value)}
               placeholder="Write or edit section content here..."
-              className="min-h-[160px] max-h-[220px] bg-neutral-950 border-neutral-800 text-xs font-sans text-neutral-200 resize-none"
+              className="min-h-[160px] max-h-[220px] bg-neutral-950 border-neutral-800 text-xs text-neutral-200 resize-none"
             />
-            <div className="text-[10px] text-neutral-500 text-right">{section.humanEdit.length} characters | {section.humanEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
+            <div className="text-[10px] text-neutral-500 text-right">{section.humanEdit.length} chars | {section.humanEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
           </TabsContent>
           <TabsContent value="preview" className="m-0 pt-2 text-xs leading-relaxed text-neutral-200 min-h-[160px] max-h-[220px] overflow-y-auto whitespace-pre-wrap">
-            {section.humanEdit || section.agentDraft || <span className="text-neutral-500 italic">No content available for preview.</span>}
+            {previewText || <span className="text-neutral-500 italic">No content available for preview.</span>}
           </TabsContent>
         </Tabs>
 
@@ -138,7 +136,7 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
               </Button>
             )}
           </div>
-          {verificationResult && <span className="text-[10px] text-neutral-400 italic">{verificationResult}</span>}
+          {verifyMsg && <span className="text-[10px] text-neutral-400 italic">{verifyMsg}</span>}
         </div>
       </CardContent>
     </Card>

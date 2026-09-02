@@ -1,18 +1,17 @@
 'use client';
-
 import { useState, useEffect } from 'react';
-import { PaperCollection } from '@/types';
 import { loadCollections } from '@/lib/storage';
+import { PaperCollection } from '@/types';
 
 export function useCollections() {
   const [collections, setCollections] = useState<PaperCollection[]>([]);
-
+  
   useEffect(() => {
-    setCollections(loadCollections());
-    const handler = () => setCollections(loadCollections());
-    window.addEventListener('paperpilot:collections-changed', handler);
-    return () => window.removeEventListener('paperpilot:collections-changed', handler);
+    const load = () => setCollections(loadCollections());
+    load();
+    window.addEventListener('paperpilot:collections-changed', load);
+    return () => window.removeEventListener('paperpilot:collections-changed', load);
   }, []);
-
+  
   return collections;
 }

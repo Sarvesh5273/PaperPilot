@@ -174,10 +174,12 @@ export async function findRelatedAction(
 
 export async function addToCollectionAction(
   paperId: string,
-  collectionName = 'Default',
+  collectionName = 'WebMCP Security',
   annotation = '',
   rating?: number
 ): Promise<{ success: boolean; collectionSize: number; collectionId: string }> {
+  console.log('[DEBUG] addToCollectionAction called with:', paperId, collectionName);
+
   if (!paperId || !paperId.trim()) {
     throw new Error('Paper ID cannot be empty.');
   }
@@ -201,6 +203,7 @@ export async function addToCollectionAction(
     if (annotation) existingInCol.userAnnotation = annotation;
     if (rating !== undefined) existingInCol.relevanceRating = rating;
     saveCollections(collections);
+    console.log('[DEBUG] Collections after save:', loadCollections());
     return { success: true, collectionSize: collection.papers.length, collectionId: collection.id };
   }
 
@@ -240,6 +243,7 @@ export async function addToCollectionAction(
 
   collection.papers.push(collectionPaper);
   saveCollections(collections);
+  console.log('[DEBUG] Collections after save:', loadCollections());
 
   return {
     success: true,
