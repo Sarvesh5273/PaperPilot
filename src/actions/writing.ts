@@ -98,7 +98,10 @@ export async function draftSectionAction(
   const year = (paper: CollectionPaper) => paper.published.split('-')[0] || 'n.d.';
   const evidence = (paper: CollectionPaper) => usable(
     paper.extractedFindings?.keyClaims.find(claim => claim !== 'Not explicitly stated'),
-    usable(paper.extractedFindings?.conclusionSummary, `the study addresses ${section.title.toLowerCase()}`)
+    usable(
+      paper.extractedFindings?.conclusionSummary,
+      usable(paper.abstract, `the paper examines ${paper.title.toLowerCase()}`)
+    )
   );
 
   let draft: string;
