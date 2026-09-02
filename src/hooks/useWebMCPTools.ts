@@ -147,6 +147,7 @@ export function useWebMCPTools() {
       },
       required: ['paper_id', 'collection_name']
     },
+    annotations: { readOnlyHint: false },
     execute: async (input: { paper_id: string; collection_name: string; annotation?: string; relevance_rating?: number }) => {
       const start = Date.now();
       try {
@@ -199,6 +200,7 @@ export function useWebMCPTools() {
       },
       required: ['collection_name']
     },
+    annotations: { readOnlyHint: false },
     execute: async (input: { collection_name: string; paper_type?: 'literature_review' | 'research_article' | 'thesis_chapter' }) => {
       const start = Date.now();
       try {
@@ -226,6 +228,7 @@ export function useWebMCPTools() {
       },
       required: ['section_id', 'collection_name']
     },
+    annotations: { readOnlyHint: false },
     execute: async (input: { section_id: string; collection_name: string; tone?: 'academic' | 'critical' | 'synthesis' }) => {
       const start = Date.now();
       try {
@@ -252,6 +255,7 @@ export function useWebMCPTools() {
       },
       required: ['section_id', 'collection_name']
     },
+    annotations: { readOnlyHint: false },
     execute: async (input: { section_id: string; collection_name: string }) => {
       const start = Date.now();
       try {
