@@ -1,7 +1,7 @@
 import { Paper } from '@/types';
 
 export async function searchArxiv(query: string, maxResults = 10): Promise<Paper[]> {
-  const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${maxResults}&sortBy=submittedDate&sortOrder=descending`;
+  const url = `/api/arxiv?q=${encodeURIComponent(query)}&max=${maxResults}`;
   const res = await fetch(url);
   const xml = await res.text();
   const parser = new DOMParser();
@@ -23,7 +23,7 @@ export async function searchArxiv(query: string, maxResults = 10): Promise<Paper
 }
 
 export async function fetchPaperAbstract(paperId: string): Promise<string> {
-  const url = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(paperId)}`;
+  const url = `/api/arxiv?q=id:${encodeURIComponent(paperId)}&max=1`;
   const res = await fetch(url);
   const xml = await res.text();
   const parser = new DOMParser();
