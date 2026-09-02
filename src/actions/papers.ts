@@ -1,5 +1,5 @@
 import { Paper, ExtractedFindings, PaperCollection, CollectionPaper } from '@/types';
-import { searchArxiv, fetchPaperAbstract } from '@/lib/arxiv';
+import { searchArxiv, fetchPaperAbstract, fetchPaperById } from '@/lib/arxiv';
 import { loadCollections, saveCollections } from '@/lib/storage';
 
 export async function searchPapersAction(
@@ -216,33 +216,19 @@ export async function addToCollectionAction(
 
   // Look in other collections first
   const allPapers = collections.flatMap(c => c.papers);
-  let paperBase: Paper | undefined = allPapers.find(p => p.id === normalizedId);
+  let paper: Paper | null | undefined = allPapers.find(p => p.id === normalizedId);
 
-  // If not found in collections, fetch from arXiv
-  if (!paperBase) {
-    try {
-      const searchResult = await searchArxiv(`id:${normalizedId}`, 1);
-      if (searchResult.length > 0) {
-        paperBase = searchResult[0];
-      }
-    } catch {
-      try {
-        const altResult = await searchArxiv(normalizedId, 1);
-        if (altResult.length > 0 && altResult[0].id === normalizedId) {
-          paperBase = altResult[0];
-        }
-      } catch {
-        // Handled below
-      }
-    }
+  // If not found in collections, fetch from arXiv by ID
+  if (!paper) {
+    paper = await fetchPaperById(normalizedId);
   }
 
-  if (!paperBase) {
-    throw new Error(`Paper ${normalizedId} not found on arXiv or in existing collections.`);
+  if (!paper) {
+    throw new Error(`Paper ${normalizedId} not found on arXiv`);
   }
 
   const collectionPaper: CollectionPaper = {
-    ...paperBase,
+    ...paper,
     userAnnotation: annotation,
     relevanceRating: rating !== undefined ? Math.min(5, Math.max(1, rating)) : 4,
     addedAt: new Date().toISOString(),
