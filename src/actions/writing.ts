@@ -90,51 +90,32 @@ export async function draftSectionAction(
   const collection = collections.find(c => c.id === outline?.collectionId || c.name.toLowerCase() === arg2.toLowerCase()) || collections[0];
   const papers: CollectionPaper[] = collection?.papers.slice(0, 3) || [];
 
-  let draft = '';
-  if (tone === 'academic') {
-    if (papers.length === 0) {
-      draft = `This section examines key theoretical arguments and empirical evidence relevant to ${section.title.toLowerCase()}. Further literature will be synthesized as papers are added to the collection.`;
-    } else {
-      draft = papers.map(p => {
-        const author = p.authors[0]?.trim().split(' ').pop() || 'Author';
-        const year = p.published.split('-')[0] || 'n.d.';
-        const claim = p.extractedFindings?.keyClaims[0] && p.extractedFindings.keyClaims[0] !== 'Not explicitly stated'
-          ? p.extractedFindings.keyClaims[0]
-          : 'notable empirical advancements';
-        return `${author} (${year}) argues that ${claim} ({{${p.id}}}).`;
-      }).join(' ');
-    }
-  } else if (tone === 'critical') {
-    if (papers.length >= 2) {
-      const p1 = papers[0];
-      const p2 = papers[1];
-      const a1 = p1.authors[0]?.trim().split(' ').pop() || 'Author';
-      const y1 = p1.published.split('-')[0] || 'n.d.';
-      const c1 = p1.extractedFindings?.keyClaims[0] || 'the primary operational approach';
-      const a2 = p2.authors[0]?.trim().split(' ').pop() || 'Author';
-      const y2 = p2.published.split('-')[0] || 'n.d.';
-      const c2 = p2.extractedFindings?.keyClaims[0] || 'an alternative paradigm';
-      draft = `While ${a1} (${y1}) suggests that ${c1} ({{${p1.id}}}), ${a2} (${y2}) counters that ${c2} ({{${p2.id}}}).`;
-    } else if (papers.length === 1) {
-      const p1 = papers[0];
-      const a1 = p1.authors[0]?.trim().split(' ').pop() || 'Author';
-      const y1 = p1.published.split('-')[0] || 'n.d.';
-      const c1 = p1.extractedFindings?.keyClaims[0] || 'the primary empirical finding';
-      draft = `Critical evaluation of ${a1} (${y1}) reveals that ${c1} ({{${p1.id}}}), though broader comparative validation is required.`;
-    } else {
-      draft = `Critical analysis of current methodologies in ${section.title.toLowerCase()} indicates key trade-offs between theoretical completeness and practical deployability.`;
-    }
+  const usable = (value: string | undefined, fallback: string) => {
+    const normalized = value?.trim();
+    return normalized && normalized !== 'Not explicitly stated' ? normalized.replace(/\s+/g, ' ') : fallback;
+  };
+  const authorName = (paper: CollectionPaper) => paper.authors[0]?.trim().split(/\s+/).pop() || 'The authors';
+  const year = (paper: CollectionPaper) => paper.published.split('-')[0] || 'n.d.';
+  const evidence = (paper: CollectionPaper) => usable(
+    paper.extractedFindings?.keyClaims.find(claim => claim !== 'Not explicitly stated'),
+    usable(paper.extractedFindings?.conclusionSummary, `the study addresses ${section.title.toLowerCase()}`)
+  );
+
+  let draft: string;
+  if (papers.length === 0) {
+    draft = `This section introduces ${section.title.toLowerCase()} and establishes the concepts that guide the discussion. Add papers to the collection to ground this overview in specific evidence.`;
   } else {
-    if (papers.length > 0) {
-      const contributions = papers.map(p => {
-        const author = p.authors[0]?.trim().split(' ').pop() || 'Author';
-        const year = p.published.split('-')[0] || 'n.d.';
-        const claim = p.extractedFindings?.keyClaims[0] || 'methodological contributions';
-        return `${author} (${year}) contributes ${claim} ({{${p.id}}})`;
-      }).join(', ');
-      draft = `The literature regarding ${section.title.toLowerCase()} reveals converging perspectives: ${contributions}. Together, these contributions inform a coherent conceptual framework.`;
+    const sourceSentences = papers.map(p =>
+      `${authorName(p)} (${year(p)}) reports that ${evidence(p)} ({{${p.id}}}).`
+    );
+    const opening = `This section considers ${section.title.toLowerCase()} through ${papers.length} selected source${papers.length === 1 ? '' : 's'}.`;
+    if (tone === 'critical') {
+      const limitation = usable(papers[0].extractedFindings?.limitations?.[0], 'its scope remains bounded by the available evidence');
+      draft = `${opening} ${sourceSentences.join(' ')} However, ${limitation}; this limitation should be considered when interpreting the findings.`;
+    } else if (tone === 'synthesis') {
+      draft = `${opening} ${sourceSentences.join(' ')} Taken together, these findings frame ${section.title.toLowerCase()} as an area shaped by complementary evidence rather than a single definitive account.`;
     } else {
-      draft = `Synthesizing current investigations into ${section.title.toLowerCase()} provides an integrated view across foundational principles and experimental results.`;
+      draft = `${opening} ${sourceSentences.join(' ')} These findings provide a basis for the analysis that follows.`;
     }
   }
 

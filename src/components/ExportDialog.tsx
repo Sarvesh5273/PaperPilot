@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { PaperOutline } from '@/types';
 import { Download, FileDown, CheckCircle } from 'lucide-react';
+import { formatAPACitation, formatIEEECitation } from '@/lib/citations';
+import { loadCollections } from '@/lib/storage';
 
 interface ExportDialogProps {
   outline?: PaperOutline;
@@ -21,6 +23,7 @@ interface ExportDialogProps {
 export function ExportDialog({ outline, disabled }: ExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [citationFormat, setCitationFormat] = useState<'apa' | 'ieee'>('apa');
 
   if (!outline) return null;
 
@@ -31,7 +34,12 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
     .map((s) => `## ${s.title}\n\n${s.humanEdit || s.agentDraft || '(Empty section)'}`)
     .join('\n\n');
 
-  const bib = outline.sections.flatMap((s) => s.citations.map((c) => c.formatted));
+  const allPapers = loadCollections().flatMap((collection) => collection.papers);
+  const bib = outline.sections.flatMap((s) => s.citations.map((c) => {
+    const paper = allPapers.find((candidate) => candidate.id === c.paperId);
+    if (!paper) return c.formatted;
+    return citationFormat === 'ieee' ? formatIEEECitation(paper) : formatAPACitation(paper);
+  }));
   const uniqueBib = [...new Set(bib)];
 
   const markdownContent = `# ${outline.title}\n\n${body}\n\n## References\n\n${
@@ -65,7 +73,7 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold flex items-center gap-2">
             <FileDown className="w-4 h-4 text-emerald-400" />
-            Export Paper as Markdown
+            Export Paper as Markdown ({citationFormat.toUpperCase()} citations)
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-2 text-xs">
@@ -73,6 +81,17 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
             {approved.length} of {outline.sections.length} sections approved.
             {approved.length === 0 && ' (Exporting all sections as draft).'}
           </p>
+          <label className="flex items-center gap-2 text-neutral-300">
+            Citation format
+            <select
+              value={citationFormat}
+              onChange={(e) => setCitationFormat(e.target.value as 'apa' | 'ieee')}
+              className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
+            >
+              <option value="apa">APA</option>
+              <option value="ieee">IEEE</option>
+            </select>
+          </label>
           <pre className="h-64 overflow-y-auto p-3 bg-neutral-950 rounded border border-neutral-800 text-[11px] text-neutral-300 font-mono whitespace-pre-wrap">
             {markdownContent}
           </pre>

@@ -34,9 +34,11 @@ export function ResearchPanel() {
   const handleAdd = async (paper: Paper) => {
     try {
       await addToCollectionAction(paper.id, 'WebMCP Security', '', 3);
+      window.dispatchEvent(new CustomEvent('paperpilot:collections-changed'));
       setAddedIds((prev) => ({ ...prev, [paper.id]: true }));
     } catch (err) {
       console.error('Failed to add paper', err);
+      window.alert(err instanceof Error ? err.message : 'Failed to add paper to collection.');
     }
   };
 
@@ -63,7 +65,7 @@ export function ResearchPanel() {
             </Button>
           </form>
 
-          <ScrollArea className="flex-1 rounded border border-neutral-800 bg-neutral-900/50 p-2">
+          <ScrollArea className="flex-1 overflow-y-auto max-h-[70vh] rounded border border-neutral-800 bg-neutral-900/50 p-2">
             {loading && <div className="text-center p-4 text-xs text-neutral-400">Searching arXiv...</div>}
             {!loading && results.length === 0 && (
               <div className="text-center p-4 text-xs text-neutral-500">
