@@ -105,59 +105,87 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger disabled={disabled} className="h-7 text-xs border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 rounded px-2.5 inline-flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-        <Download className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Export
+      <DialogTrigger
+        disabled={disabled}
+        className="h-7.5 text-xs font-semibold border border-border/80 bg-background hover:bg-accent text-foreground rounded-lg px-2.5 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+        <span>Export</span>
       </DialogTrigger>
-      <DialogContent className="max-w-xl bg-neutral-900 border-neutral-800 text-neutral-200">
+      <DialogContent className="max-w-xl bg-card border-border/80 text-foreground rounded-2xl shadow-xl">
         <DialogHeader>
-          <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-            <FileDown className="w-4 h-4 text-emerald-400" /> Export paper
+          <DialogTitle className="font-editorial text-base font-bold flex items-center gap-2 text-foreground">
+            <FileDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span>Export Manuscript</span>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-xs">
-          <p className="text-neutral-400">
-            {approved.length} of {outline.sections.length} sections approved.
+          <p className="text-muted-foreground">
+            <strong className="text-foreground">{approved.length}</strong> of {outline.sections.length} sections approved.
             {approved.length === 0 && ' All sections will be included as a working draft.'}
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <label className="space-y-1 text-neutral-300">
-              <span>File type</span>
-              <select value={exportFormat} onChange={e => setExportFormat(e.target.value as ExportFormat)}
-                className="w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-xs text-neutral-200">
+            <label className="space-y-1 text-foreground font-medium">
+              <span className="text-[11px] text-muted-foreground">File format</span>
+              <select
+                value={exportFormat}
+                onChange={e => setExportFormat(e.target.value as ExportFormat)}
+                className="w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-xs font-medium text-foreground outline-none shadow-2xs"
+              >
                 <option value="markdown">Markdown (.md)</option>
                 <option value="docx">Word (.docx)</option>
                 <option value="bibtex">BibTeX (.bib)</option>
               </select>
             </label>
-            <label className="space-y-1 text-neutral-300">
-              <span>Citation style</span>
-              <select value={citationFormat} onChange={e => setCitationFormat(e.target.value as CitationFormat)}
-                className="w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-xs text-neutral-200">
-                <option value="apa">APA</option>
-                <option value="ieee">IEEE numbered</option>
+            <label className="space-y-1 text-foreground font-medium">
+              <span className="text-[11px] text-muted-foreground">Citation convention</span>
+              <select
+                value={citationFormat}
+                onChange={e => setCitationFormat(e.target.value as CitationFormat)}
+                className="w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-xs font-medium text-foreground outline-none shadow-2xs"
+              >
+                <option value="apa">APA (Author, Year)</option>
+                <option value="ieee">IEEE numbered [n]</option>
               </select>
             </label>
           </div>
           {exportFormat === 'docx' && (
-            <p className="rounded border border-amber-900/70 bg-amber-950/20 p-2 text-[11px] leading-relaxed text-amber-200">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
               {citationFormat === 'ieee'
-                ? 'IEEE: two-column manuscript, 10pt Times, numbered citations [n]. Always apply the official conference template before submitting.'
-                : 'APA: student-paper format with title page, double-spaced indented paragraphs, and hanging-indent references.'}
-            </p>
+                ? 'IEEE format: two-column layout, Times font, bracketed numbered citations [n].'
+                : 'APA format: student-paper format with double-spacing and hanging-indent references.'}
+            </div>
           )}
-          {error && <p className="text-[11px] text-rose-400">{error}</p>}
-          <pre className="h-56 overflow-y-auto rounded border border-neutral-800 bg-neutral-950 p-3 text-[11px] text-neutral-300 font-mono whitespace-pre-wrap">{markdownContent}</pre>
+          {error && <p className="text-xs font-medium text-rose-500">{error}</p>}
+          <pre className="h-52 overflow-y-auto rounded-xl border border-border/70 bg-muted/30 p-3 text-[11px] text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap">
+            {markdownContent}
+          </pre>
         </div>
         <DialogFooter>
-          <Button size="sm" onClick={handleDownload} disabled={exporting}
-            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700">
-            {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-              : downloaded ? <CheckCircle className="w-3.5 h-3.5 mr-1" />
-              : <FileText className="w-3.5 h-3.5 mr-1" />}
-            {exporting ? 'Generating...' : downloaded ? 'Downloaded'
-              : exportFormat === 'docx' ? 'Download .docx'
-              : exportFormat === 'bibtex' ? 'Download .bib'
-              : 'Download .md'}
+          <Button
+            size="sm"
+            onClick={handleDownload}
+            disabled={exporting}
+            className="h-8.5 px-4 text-xs font-semibold rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-xs"
+          >
+            {exporting ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : downloaded ? (
+              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+            ) : (
+              <FileText className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            <span>
+              {exporting
+                ? 'Generating...'
+                : downloaded
+                ? 'Downloaded!'
+                : exportFormat === 'docx'
+                ? 'Download .docx'
+                : exportFormat === 'bibtex'
+                ? 'Download .bib'
+                : 'Download .md'}
+            </span>
           </Button>
         </DialogFooter>
       </DialogContent>

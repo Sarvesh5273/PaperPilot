@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useCollections } from '@/hooks/useCollections';
 import { saveCollections } from '@/lib/storage';
 import { comparePapersAction, extractFindingsAction } from '@/actions/papers';
-import { Bookmark, Star, Trash2, BarChart2, Sparkles, Loader2, ChevronDown, Square, CheckSquare } from 'lucide-react';
+import { Bookmark, Star, Trash2, BarChart2, Sparkles, Loader2, ChevronDown, Square, CheckSquare, MessageSquare } from 'lucide-react';
 
 const COMPARE_DIMENSIONS = ['methodology', 'results', 'limitations'];
 const MAX_COMPARE = 5;
@@ -24,9 +24,9 @@ interface MatrixCell {
 function FindingsRow({ label, value }: { label: string; value: string }) {
   const missing = !value || value === NOT_STATED;
   return (
-    <p>
-      <span className="text-neutral-500">{label}: </span>
-      <span className={missing ? 'italic text-neutral-600' : 'text-neutral-300'}>
+    <p className="text-[11px] leading-relaxed">
+      <span className="font-medium text-muted-foreground">{label}: </span>
+      <span className={missing ? 'italic text-muted-foreground/60' : 'text-foreground/90'}>
         {missing ? 'not stated' : value}
       </span>
     </p>
@@ -37,11 +37,11 @@ function FindingsList({ label, items }: { label: string; items?: string[] }) {
   const usable = (items || []).filter(i => i && i !== NOT_STATED);
   if (usable.length === 0) return <FindingsRow label={label} value="" />;
   return (
-    <div>
-      <span className="text-neutral-500">{label}:</span>
-      <ul className="list-disc pl-3.5 mt-0.5 space-y-0.5">
+    <div className="text-[11px] leading-relaxed">
+      <span className="font-medium text-muted-foreground">{label}:</span>
+      <ul className="list-disc pl-4 mt-1 space-y-1">
         {usable.map((item, i) => (
-          <li key={i} className="text-neutral-300">{item}</li>
+          <li key={i} className="text-foreground/90">{item}</li>
         ))}
       </ul>
     </div>
@@ -76,7 +76,6 @@ export function CollectionSidebar() {
 
   const activeCollection = collections.find(c => c.id === activeCollectionId) || collections[0];
 
-  // Reset compare state when switching collections
   useEffect(() => {
     setSelectedIds(new Set());
     setMatrix(null);
@@ -134,7 +133,7 @@ export function CollectionSidebar() {
   const handleCompare = async () => {
     if (selectedIds.size < 2) return;
     if (unanalyzedSelected.length > 0) {
-      setCompareError(`Extract findings for ${unanalyzedSelected.length} selected paper${unanalyzedSelected.length > 1 ? 's' : ''} first — open the paper card and click Extract.`);
+      setCompareError(`Extract findings for ${unanalyzedSelected.length} selected paper${unanalyzedSelected.length > 1 ? 's' : ''} first.`);
       return;
     }
     setComparing(true);
@@ -156,99 +155,121 @@ export function CollectionSidebar() {
     matrix?.find(c => c.dimension === dim && c.paperId === paperId)?.value || NOT_STATED;
 
   return (
-    <Card className="bg-neutral-900 border-neutral-800 flex flex-col h-full">
-      <CardHeader className="p-3 pb-2 border-b border-neutral-800">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
-            <Bookmark className="w-3.5 h-3.5 text-blue-400" />
-            {collections.length > 1 ? (
-              <select
-                aria-label="Active collection"
-                value={activeCollection?.id || ''}
-                onChange={(e) => handleCollectionChange(e.target.value)}
-                className="bg-transparent text-xs text-neutral-200 outline-none max-w-[150px]"
-              >
-                {collections.map(collection => <option key={collection.id} value={collection.id}>{collection.name}</option>)}
-              </select>
-            ) : <span>{activeCollection?.name || 'Collection'}</span>}
-          </CardTitle>
-          <Badge variant="outline" className="text-[10px] border-neutral-700 text-neutral-400">
-            {activeCollection?.papers.length || 0} papers
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="p-2 flex-1 overflow-hidden flex flex-col">
-        {activeCollection && activeCollection.papers.length >= 2 && (
-          <div className="mb-2 shrink-0">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm" variant="outline" onClick={handleCompare}
-                disabled={selectedIds.size < 2 || comparing}
-                className="h-6 px-2 text-[10px] border-neutral-700"
-              >
-                {comparing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <BarChart2 className="w-3 h-3 mr-1 text-blue-400" />}
-                {comparing ? 'Comparing…' : `Compare${selectedIds.size ? ` (${selectedIds.size})` : ''}`}
-              </Button>
-              <span className="text-[10px] text-neutral-500">
-                {selectedIds.size < 2 ? 'Select 2–5 papers to compare' : `${selectedIds.size} of ${MAX_COMPARE} max selected`}
-              </span>
-            </div>
-            {compareError && <p className="text-[10px] text-rose-400 mt-1">{compareError}</p>}
-          </div>
-        )}
-        <ScrollArea className="flex-1">
-          {!activeCollection || activeCollection.papers.length === 0 ? (
-            <div className="text-center p-4 text-xs text-neutral-500">
-              No saved papers in collection.
-            </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="pb-2.5 mb-2.5 border-b border-border/70 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Bookmark className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          {collections.length > 1 ? (
+            <select
+              aria-label="Active collection"
+              value={activeCollection?.id || ''}
+              onChange={(e) => handleCollectionChange(e.target.value)}
+              className="bg-muted/50 border border-border/60 text-xs font-semibold text-foreground rounded-lg px-2 py-1 outline-none max-w-[170px]"
+            >
+              {collections.map(col => <option key={col.id} value={col.id}>{col.name}</option>)}
+            </select>
           ) : (
-            <div className="space-y-2">
-              {activeCollection.papers.map((paper) => (
+            <span className="font-editorial font-bold text-sm text-foreground truncate">
+              {activeCollection?.name || 'Collection'}
+            </span>
+          )}
+        </div>
+        <Badge variant="outline" className="border-border bg-muted/60 text-[10px] text-muted-foreground font-mono">
+          {activeCollection?.papers.length || 0} papers
+        </Badge>
+      </div>
+
+      {activeCollection && activeCollection.papers.length >= 2 && (
+        <div className="mb-2.5 p-2 rounded-xl bg-accent/30 border border-border/60 shrink-0 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCompare}
+              disabled={selectedIds.size < 2 || comparing}
+              className="h-7 px-2.5 text-xs rounded-lg font-medium border-border/80 bg-background hover:bg-accent gap-1.5"
+            >
+              {comparing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+              ) : (
+                <BarChart2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              )}
+              <span>{comparing ? 'Comparing…' : `Compare${selectedIds.size ? ` (${selectedIds.size})` : ''}`}</span>
+            </Button>
+            <span className="text-[10px] text-muted-foreground">
+              {selectedIds.size < 2 ? 'Select 2–5 papers' : `${selectedIds.size} / ${MAX_COMPARE} selected`}
+            </span>
+          </div>
+          {compareError && <p className="text-[10px] text-rose-500 font-medium">{compareError}</p>}
+        </div>
+      )}
+
+      <ScrollArea className="flex-1 pr-1 min-h-0">
+        {!activeCollection || activeCollection.papers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center space-y-2">
+            <Bookmark className="w-6 h-6 text-muted-foreground/60" />
+            <p className="text-xs font-medium text-foreground">No papers saved yet</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Use the arXiv Search tab to add papers to this collection.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {activeCollection.papers.map((paper) => {
+              const isSelected = selectedIds.has(paper.id);
+              return (
                 <div
                   key={paper.id}
-                  className={`p-2.5 bg-neutral-950 border rounded text-xs space-y-1.5 ${
-                    selectedIds.has(paper.id) ? 'border-blue-800' : 'border-neutral-800/80'
+                  className={`p-3 rounded-xl border transition-all shadow-2xs space-y-2 ${
+                    isSelected
+                      ? 'border-amber-500/70 bg-amber-500/5 ring-1 ring-amber-500/20'
+                      : 'border-border/80 bg-card hover:border-border'
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-1">
-                    <div className="flex items-start gap-1.5 min-w-0">
+                  <div className="flex justify-between items-start gap-1.5">
+                    <div className="flex items-start gap-2 min-w-0">
                       <button
                         onClick={() => toggleSelect(paper.id)}
-                        aria-label={selectedIds.has(paper.id) ? 'Deselect paper' : 'Select paper for comparison'}
-                        className="mt-0.5 text-blue-400 hover:text-blue-300 shrink-0"
+                        aria-label={isSelected ? 'Deselect paper' : 'Select paper for comparison'}
+                        className="mt-0.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 shrink-0 cursor-pointer"
                       >
-                        {selectedIds.has(paper.id)
-                          ? <CheckSquare className="w-3.5 h-3.5" />
-                          : <Square className="w-3.5 h-3.5" />}
+                        {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                       </button>
-                      <span className="font-medium text-neutral-200 line-clamp-2">{paper.title}</span>
+                      <span className="font-editorial font-semibold text-xs leading-snug text-foreground line-clamp-2">
+                        {paper.title}
+                      </span>
                     </div>
                     <Button
-                      size="icon" variant="ghost" onClick={() => handleRemovePaper(paper.id)}
-                      className="h-5 w-5 text-neutral-500 hover:text-rose-400 shrink-0"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleRemovePaper(paper.id)}
+                      className="h-6 w-6 text-muted-foreground hover:text-rose-500 shrink-0 rounded-md"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-neutral-400 pl-5">
-                    <span>arXiv:{paper.id}</span>
-                    <span className="flex items-center text-amber-400">
-                      <Star className="w-2.5 h-2.5 fill-amber-400 mr-0.5" />
+
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pl-6">
+                    <span className="font-mono">arXiv:{paper.id}</span>
+                    <span className="flex items-center text-amber-600 dark:text-amber-400 font-medium">
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-500 mr-1" />
                       {paper.relevanceRating}/5
                     </span>
                   </div>
+
                   {paper.userAnnotation && (
-                    <div className="text-[10px] text-neutral-400 italic bg-neutral-900/60 p-1.5 rounded">
+                    <div className="text-[11px] text-foreground/80 italic bg-amber-500/10 border-l-2 border-amber-500 p-2 rounded-r-lg ml-6">
                       &ldquo;{paper.userAnnotation}&rdquo;
                     </div>
                   )}
+
                   {paper.extractedFindings ? (
-                    <details className="text-[10px] bg-neutral-900/60 p-1.5 rounded group">
-                      <summary className="cursor-pointer text-neutral-400 hover:text-neutral-200 flex items-center gap-1 select-none">
-                        <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-                        Extracted findings
+                    <details className="text-[11px] bg-muted/40 border border-border/60 p-2 rounded-lg ml-6 group">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1.5 select-none text-[10px]">
+                        <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180 text-amber-600" />
+                        <span>Extracted findings &amp; claims</span>
                       </summary>
-                      <div className="mt-1.5 space-y-1">
+                      <div className="mt-2 space-y-1.5 pt-1.5 border-t border-border/40">
                         <FindingsRow label="Question" value={paper.extractedFindings.researchQuestion} />
                         <FindingsRow label="Method" value={paper.extractedFindings.methodology} />
                         <FindingsList label="Key claims" items={paper.extractedFindings.keyClaims} />
@@ -257,70 +278,91 @@ export function CollectionSidebar() {
                       </div>
                     </details>
                   ) : (
-                    <div className="flex items-center justify-between pl-5">
-                      <span className="text-[10px] italic text-neutral-600">No findings extracted yet</span>
+                    <div className="flex items-center justify-between pl-6 pt-1">
+                      <span className="text-[10px] italic text-muted-foreground">Findings not extracted</span>
                       <Button
-                        size="sm" variant="ghost" onClick={() => handleExtract(paper.id)}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleExtract(paper.id)}
                         disabled={Boolean(extracting[paper.id])}
-                        className="h-5 px-1.5 text-[10px] text-amber-400 hover:text-amber-300"
+                        className="h-6 px-2 text-[10px] font-medium rounded-lg text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30"
                       >
-                        {extracting[paper.id]
-                          ? <Loader2 className="w-3 h-3 animate-spin" />
-                          : <><Sparkles className="w-3 h-3 mr-1" />Extract</>}
+                        {extracting[paper.id] ? (
+                          <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                        ) : (
+                          <Sparkles className="w-3 h-3 mr-1 text-amber-600" />
+                        )}
+                        <span>Extract</span>
                       </Button>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
+              );
+            })}
+          </div>
+        )}
+      </ScrollArea>
 
       <Dialog open={compareDialogOpen} onOpenChange={setCompareDialogOpen}>
-        <DialogContent className="max-w-3xl bg-neutral-900 border-neutral-800 text-neutral-200">
+        <DialogContent className="max-w-3xl bg-card border-border/80 text-foreground rounded-2xl shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-              <BarChart2 className="w-4 h-4 text-blue-400" />
-              Paper comparison ({comparedTitles.length} papers)
+            <DialogTitle className="font-editorial text-base font-bold flex items-center gap-2 text-foreground">
+              <BarChart2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              Comparative Analysis ({comparedTitles.length} papers)
             </DialogTitle>
           </DialogHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-[11px]">
+          <div className="overflow-x-auto rounded-xl border border-border/70 my-2">
+            <table className="w-full min-w-[560px] text-xs">
               <thead>
-                <tr className="text-left text-neutral-500">
-                  <th className="py-2 pr-3 font-medium whitespace-nowrap align-top">Dimension</th>
+                <tr className="bg-muted/60 text-muted-foreground border-b border-border/70">
+                  <th className="py-2.5 px-3 font-semibold whitespace-nowrap text-left w-28 uppercase text-[10px] tracking-wider">
+                    Dimension
+                  </th>
                   {comparedTitles.map((title, i) => (
-                    <th key={i} className="py-2 pr-3 font-medium align-top text-neutral-300 w-1/3">
-                      <span className="text-neutral-500 font-mono mr-1">[{i + 1}]</span>{title}
+                    <th key={i} className="py-2.5 px-3 font-semibold text-left text-foreground">
+                      <span className="text-amber-600 dark:text-amber-400 font-mono mr-1">[{i + 1}]</span>
+                      <span className="font-editorial line-clamp-2">{title}</span>
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
-                {COMPARE_DIMENSIONS.map(dim => (
-                  <tr key={dim} className="border-t border-neutral-800 align-top">
-                    <td className="py-2.5 pr-3 text-neutral-500 capitalize whitespace-nowrap">{dim}</td>
+              <tbody className="divide-y divide-border/50">
+                {COMPARE_DIMENSIONS.map((dim, idx) => (
+                  <tr key={dim} className={idx % 2 === 0 ? 'bg-background/40' : 'bg-muted/20'}>
+                    <td className="py-3 px-3 font-semibold text-muted-foreground capitalize text-[11px] align-top">
+                      {dim}
+                    </td>
                     {selectedPapers.map(p => (
-                      <td key={p.id} className="py-2.5 pr-3 text-neutral-300">{cellValue(dim, p.id)}</td>
+                      <td key={p.id} className="py-3 px-3 text-foreground/90 text-[11px] leading-relaxed align-top">
+                        {cellValue(dim, p.id)}
+                      </td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="rounded border border-neutral-800 bg-neutral-950 p-2.5 text-[11px] text-neutral-400">
-            <span className="text-blue-400 font-medium">Agent tip: </span>
-            for a richer narrative comparison, ask ChatGPT in the browser:
-            <code className="block mt-1 text-[10px] text-neutral-300 font-mono">&ldquo;Use compare_papers on the {comparedTitles.length} selected papers and summarize the key trade-offs in prose.&rdquo;</code>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground/90 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-amber-800 dark:text-amber-300">Agent Co-Pilot Tip: </span>
+              Ask ChatGPT in the browser:
+              <code className="block mt-1 font-mono text-[10px] bg-background/80 px-2 py-1 rounded border border-border/60">
+                &ldquo;Use compare_papers on the {comparedTitles.length} selected papers and summarize key trade-offs in prose.&rdquo;
+              </code>
+            </div>
           </div>
           <DialogFooter>
-            <Button size="sm" onClick={() => setCompareDialogOpen(false)} className="h-7 text-xs bg-neutral-800 hover:bg-neutral-700">
+            <Button
+              size="sm"
+              onClick={() => setCompareDialogOpen(false)}
+              className="h-8 text-xs font-medium rounded-xl bg-secondary hover:bg-accent text-secondary-foreground"
+            >
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }

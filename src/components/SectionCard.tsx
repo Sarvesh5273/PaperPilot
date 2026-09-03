@@ -12,7 +12,7 @@ import { saveOutlines, loadOutlines, loadCollections } from '@/lib/storage';
 import { formatInTextCitation, formatAPACitation } from '@/lib/citations';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CitationPicker } from './CitationPicker';
-import { Sparkles, Check, ShieldCheck, ArrowRight, Loader2, PencilLine } from 'lucide-react';
+import { Sparkles, Check, ShieldCheck, ArrowRight, Loader2, PencilLine, Eye, FileEdit } from 'lucide-react';
 
 interface SectionCardProps {
   outline: PaperOutline;
@@ -50,7 +50,7 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
 
   const handleVerify = async () => {
     const paperId = section.citations[0]?.paperId;
-    if (!paperId) return setVerifyMsg('⚠️ No paper cited yet to verify against.');
+    if (!paperId) return setVerifyMsg('⚠️ No paper cited yet in this section to verify against.');
     const res = await verifyClaimAction(outline.id, section.id, section.humanEdit.slice(0, 200), paperId);
     setVerifyMsg(`${res.verified ? '✅' : '⚠️'} [${res.confidence.toUpperCase()}] ${res.evidence}`);
   };
@@ -91,78 +91,175 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
     return p ? formatInTextCitation(p.authors, p.published.split('-')[0]) : m;
   }));
 
+  const wordCount = editableText.trim().split(/\s+/).filter(Boolean).length;
+  const charCount = editableText.length;
+
   return (
-    <Card className="bg-neutral-900 border-neutral-800 flex flex-col space-y-3 p-4">
-      <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between space-y-0">
+    <Card className="bg-card/90 backdrop-blur-md border border-border/80 rounded-2xl shadow-sm flex flex-col space-y-3.5 p-4">
+      <CardHeader className="p-0 pb-2.5 flex flex-row items-center justify-between space-y-0 border-b border-border/60">
         <div>
-          <CardTitle className="text-sm font-semibold text-neutral-200">{section.title}</CardTitle>
+          <CardTitle className="font-editorial text-base font-bold text-foreground">
+            {section.title}
+          </CardTitle>
           <div className="flex items-center gap-2 mt-1">
             <ProvenanceBadge section={section} />
-            <Badge variant="outline" className={`text-[10px] ${section.status === 'approved' ? 'text-emerald-400 border-emerald-800' : 'text-neutral-400 border-neutral-800'}`}>
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-semibold tracking-wide px-2.5 py-0.5 rounded-full ${
+                section.status === 'approved'
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                  : section.status === 'editing'
+                  ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30'
+                  : 'bg-muted text-muted-foreground border-border/70'
+              }`}
+            >
               {section.status.toUpperCase()}
             </Badge>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <Button size="sm" variant="outline" onClick={handleDraft} disabled={drafting} className="h-7 text-xs border-neutral-700">
-            {drafting ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1 text-amber-400" />}
-            {drafting ? 'Drafting...' : 'Draft'}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDraft}
+            disabled={drafting}
+            className="h-8 px-3 text-xs rounded-xl font-medium border-border/80 bg-background hover:bg-accent gap-1.5"
+          >
+            {drafting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" /> : <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+            <span>{drafting ? 'Drafting...' : 'Draft'}</span>
           </Button>
-          <Button size="sm" variant={section.status === 'approved' ? 'default' : 'secondary'} onClick={handleApprove} className="h-7 text-xs">
-            <Check className="w-3 h-3 mr-1" /> {section.status === 'approved' ? 'Approved' : 'Approve'}
+          <Button
+            size="sm"
+            onClick={handleApprove}
+            className={`h-8 px-3.5 text-xs rounded-xl font-medium shadow-xs transition-all ${
+              section.status === 'approved'
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white'
+            }`}
+          >
+            <Check className="w-3.5 h-3.5 mr-1.5 stroke-[2.5]" />
+            <span>{section.status === 'approved' ? 'Approved' : 'Approve'}</span>
           </Button>
         </div>
       </CardHeader>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-800 bg-neutral-950/60 px-2.5 py-2">
-        <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
-          <PencilLine className="h-3.5 w-3.5 text-blue-400" /> Review the source draft, then make this section your own.
+      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border/70 bg-accent/30 px-3 py-2">
+        <p className="text-xs font-medium text-foreground/80 flex items-center gap-1.5">
+          <PencilLine className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span>Review agent drafts, insert citations, and refine your section.</span>
         </p>
         <CitationPicker onSelect={handleInsertCitation} />
       </div>
 
-      <CardContent className="p-0 flex-1 flex flex-col space-y-2">
+      <CardContent className="p-0 flex-1 flex flex-col space-y-2.5">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'draft' | 'edit' | 'preview')} className="flex flex-col flex-1">
-          <TabsList className="bg-neutral-950 grid grid-cols-3 h-8">
-            <TabsTrigger value="draft" className="text-xs">Source Draft</TabsTrigger>
-            <TabsTrigger value="edit" className="text-xs">Write & Edit</TabsTrigger>
-            <TabsTrigger value="preview" className="text-xs">Reading View</TabsTrigger>
+          <TabsList className="bg-muted/80 p-1 rounded-xl border border-border/50 grid grid-cols-3 h-9">
+            <TabsTrigger
+              value="draft"
+              className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Source Draft</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="edit"
+              className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5"
+            >
+              <FileEdit className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+              <span>Write &amp; Edit</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="preview"
+              className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5"
+            >
+              <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Reading View</span>
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="draft" className="m-0 pt-2 text-xs leading-relaxed text-neutral-300 min-h-[160px] max-h-[220px] overflow-y-auto">
-            {!section.agentDraft ? <div className="text-neutral-500 italic space-y-1"><p>No source draft generated yet.</p><p className="not-italic text-[10px]">Click Draft to create a research-grounded starting point from the collection.</p></div> :
-              section.agentDraft.split(/(\{\{[^}]+\}\})/).map((chunk, i) => chunk.startsWith('{{') ?
-                <span key={i} className="bg-amber-500/20 text-amber-300 font-mono px-1 py-0.5 rounded">{chunk}</span> :
-                <span key={i}>{chunk}</span>
-              )}
+
+          <TabsContent
+            value="draft"
+            className="m-0 pt-2 text-xs leading-relaxed text-foreground/90 font-editorial min-h-[180px] max-h-[260px] overflow-y-auto p-3.5 rounded-xl border border-border/70 bg-muted/20"
+          >
+            {!section.agentDraft ? (
+              <div className="text-muted-foreground italic space-y-1.5 py-4 text-center font-sans">
+                <p className="font-medium text-xs">No source draft generated yet.</p>
+                <p className="not-italic text-[11px]">
+                  Click <strong className="text-foreground">Draft</strong> above to create an academic starting point synthesized from the collection.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 whitespace-pre-wrap">
+                {section.agentDraft.split(/(\{\{[^}]+\}\})/).map((chunk, i) =>
+                  chunk.startsWith('{{') ? (
+                    <span
+                      key={i}
+                      className="bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono px-1.5 py-0.5 rounded border border-amber-500/30 text-[11px] font-semibold"
+                    >
+                      {chunk}
+                    </span>
+                  ) : (
+                    <span key={i}>{chunk}</span>
+                  )
+                )}
+              </div>
+            )}
           </TabsContent>
-          <TabsContent value="edit" className="m-0 pt-2 flex flex-col space-y-1">
+
+          <TabsContent value="edit" className="m-0 pt-2 flex flex-col space-y-1.5">
             <Textarea
               value={editableText}
               onChange={(e) => updateText(e.target.value)}
               placeholder="Write, revise, and shape this section here..."
-              className="min-h-[260px] max-h-[420px] bg-neutral-950 border-neutral-800 text-sm leading-relaxed text-neutral-200 resize-y"
+              className="min-h-[270px] max-h-[420px] bg-background border-border/80 focus-visible:ring-amber-500/30 text-sm leading-relaxed text-foreground rounded-xl p-3.5 shadow-2xs font-sans resize-y"
             />
-            <div className="text-[10px] text-neutral-500 text-right">{editableText.length} chars | {editableText.trim().split(/\s+/).filter(Boolean).length} words</div>
+            <div className="text-[11px] font-medium text-muted-foreground text-right pr-1">
+              {wordCount} words <span className="text-border mx-1">|</span> {charCount} chars
+            </div>
           </TabsContent>
-          <TabsContent value="preview" className="m-0 pt-2 text-xs leading-relaxed text-neutral-200 min-h-[160px] max-h-[220px] overflow-y-auto whitespace-pre-wrap">
-            {previewText || <span className="text-neutral-500 italic">Your edited section will appear here as a clean reading view.</span>}
+
+          <TabsContent
+            value="preview"
+            className="m-0 pt-2 text-sm leading-relaxed text-foreground font-editorial min-h-[180px] max-h-[260px] overflow-y-auto whitespace-pre-wrap p-4 rounded-xl border border-border/70 bg-card shadow-2xs"
+          >
+            {previewText || (
+              <span className="text-muted-foreground italic font-sans text-xs">
+                Your edited section will appear here as a formatted academic reading view with resolved citations.
+              </span>
+            )}
           </TabsContent>
         </Tabs>
 
-        {draftError && <p className="text-[10px] text-rose-400">{draftError}</p>}
+        {draftError && <p className="text-xs font-medium text-rose-500">{draftError}</p>}
 
-        <div className="flex items-center justify-between pt-2 border-t border-neutral-800 text-[11px]">
+        <div className="flex flex-wrap items-center justify-between pt-2.5 border-t border-border/60 text-xs">
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={handleVerify} className="h-6 px-2 text-[10px] text-neutral-300 hover:text-white">
-              <ShieldCheck className="w-3 h-3 mr-1 text-emerald-400" /> Verify Claim
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleVerify}
+              className="h-7 px-2.5 text-xs font-medium rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Verify Claim</span>
             </Button>
             {nextSectionId && (
-              <Button size="sm" variant="ghost" onClick={handleTransition} className="h-6 px-2 text-[10px] text-neutral-300 hover:text-white">
-                <ArrowRight className="w-3 h-3 mr-1 text-blue-400" /> Suggest Transition
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleTransition}
+                className="h-7 px-2.5 text-xs font-medium rounded-lg text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 gap-1.5"
+              >
+                <ArrowRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Suggest Transition</span>
               </Button>
             )}
           </div>
-          {verifyMsg && <span className="text-[10px] text-neutral-400 italic">{verifyMsg}</span>}
+          {verifyMsg && (
+            <span className="text-[11px] font-medium text-foreground/80 bg-accent/40 px-2.5 py-1 rounded-lg border border-border/60 max-w-sm truncate">
+              {verifyMsg}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
