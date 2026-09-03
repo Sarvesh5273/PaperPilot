@@ -342,12 +342,12 @@ export function CollectionSidebar() {
               </tbody>
             </table>
           </div>
-          <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 sm:p-3 text-xs text-foreground/90 flex items-start gap-2">
+          <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground/90 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <span className="font-semibold text-amber-800 dark:text-amber-300">Agent Co-Pilot Tip: </span>
-              Ask ChatGPT in the browser:
-              <code className="block mt-1 font-mono text-[10px] bg-background/80 px-2 py-1 rounded border border-border/60 truncate sm:whitespace-normal">
+              <span className="text-muted-foreground">Ask ChatGPT in the browser:</span>
+              <code className="block mt-1.5 font-mono text-[11px] bg-background/90 p-2 rounded-lg border border-border/70 text-foreground break-words whitespace-normal select-all leading-relaxed shadow-2xs">
                 &ldquo;Use compare_papers on the {comparedTitles.length} selected papers and summarize key trade-offs in prose.&rdquo;
               </code>
             </div>

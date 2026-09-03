@@ -54,11 +54,6 @@ export default function Home() {
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span className="truncate">Research</span>
-            {totalPapers > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${activeTab === 'research' ? 'bg-amber-700/80 text-white' : 'bg-muted text-muted-foreground'}`}>
-                {totalPapers}
-              </span>
-            )}
           </button>
           <button
             type="button"
@@ -83,11 +78,6 @@ export default function Home() {
           >
             <Cpu className="w-3.5 h-3.5" />
             <span className="truncate">Activity</span>
-            {logs.length > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${activeTab === 'activity' ? 'bg-amber-700/80 text-white' : 'bg-muted text-muted-foreground'}`}>
-                {logs.length}
-              </span>
-            )}
           </button>
         </div>
       </div>
