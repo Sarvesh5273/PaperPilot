@@ -9,7 +9,7 @@ import { useCollections } from '@/hooks/useCollections';
 import { generateOutlineAction } from '@/actions/writing';
 import { SectionCard } from './SectionCard';
 import { ExportDialog } from './ExportDialog';
-import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2 } from 'lucide-react';
+import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2, Check } from 'lucide-react';
 
 export function EditorPanel() {
   const outlines = useOutlines();
@@ -45,6 +45,11 @@ export function EditorPanel() {
     activeOutline?.sections.find((s) => s.id === selectedSectionId) ||
     activeOutline?.sections[0];
   const hasSourcePapers = Boolean(activeCollection?.papers.length);
+
+  // Guided-pipeline state: how far along is this collection?
+  const paperCount = activeCollection?.papers.length || 0;
+  const analyzedCount = activeCollection?.papers.filter(p => p.extractedFindings).length || 0;
+  const currentStep = paperCount === 0 ? 1 : analyzedCount < paperCount ? 2 : 3;
 
   const handleGenerateOutline = async (type: 'literature_review' | 'research_article' | 'thesis_chapter' = 'literature_review') => {
     const colId = activeCollection?.id;
@@ -100,11 +105,41 @@ export function EditorPanel() {
                   <p className="text-[11px] text-neutral-500 mt-1">Save sources, create an outline, then write and revise each section in one place.</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-[10px] text-neutral-500">
-                <div><span className="text-blue-400 font-mono">1</span> Save papers</div>
-                <div><span className="text-blue-400 font-mono">2</span> Build outline</div>
-                <div><span className="text-blue-400 font-mono">3</span> Draft sections</div>
-              </div>
+              <ol className="space-y-2.5">
+                <li className="flex items-start gap-2.5">
+                  <StepBadge n={1} done={paperCount > 0} current={currentStep === 1} />
+                  <div>
+                    <p className={`text-[11px] ${paperCount > 0 ? 'text-neutral-500 line-through' : 'text-neutral-200'}`}>Save papers to your collection</p>
+                    <p className="text-[10px] text-neutral-500">
+                      {paperCount > 0 ? `${paperCount} papers in “${activeCollection?.name}”` : 'Use the arXiv Search tab to find and save papers'}
+                    </p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <StepBadge n={2} done={analyzedCount === paperCount && paperCount > 0} current={currentStep === 2} />
+                  <div>
+                    <p className={`text-[11px] ${analyzedCount === paperCount && paperCount > 0 ? 'text-neutral-500 line-through' : 'text-neutral-200'}`}>Understand your sources</p>
+                    <p className="text-[10px] text-neutral-500">
+                      {paperCount === 0 ? 'Extract research questions, claims, and limitations per paper'
+                        : `Findings extracted for ${analyzedCount}/${paperCount} papers — open the Collection tab and click Extract`}
+                    </p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <StepBadge n={3} done={false} current={currentStep === 3} />
+                  <div>
+                    <p className="text-[11px] text-neutral-200">Build your outline</p>
+                    <p className="text-[10px] text-neutral-500">Click “Generate Outline” above — sections are created from your collection</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <StepBadge n={4} done={false} current={false} />
+                  <div>
+                    <p className="text-[11px] text-neutral-500">Draft, verify, approve, export</p>
+                    <p className="text-[10px] text-neutral-500">Each section gets an agent draft — you edit, approve, and export APA or IEEE</p>
+                  </div>
+                </li>
+              </ol>
               {generationError && <p className="text-[11px] text-rose-400">{generationError}</p>}
             </div>
           ) : (
@@ -133,6 +168,10 @@ export function EditorPanel() {
                 );
               })}
               </ul>
+              <p className="text-[10px] text-neutral-500 mt-1.5 flex items-center gap-1.5">
+                <ArrowRight className="w-3 h-3 text-blue-400" />
+                Open a section → Draft → Verify Claim → edit in Write &amp; Edit → Approve → Export
+              </p>
             </div>
           )}
         </CardContent>
@@ -159,5 +198,17 @@ export function EditorPanel() {
         )}
       </div>
     </div>
+  );
+}
+
+function StepBadge({ n, done, current }: { n: number; done: boolean; current: boolean }) {
+  return (
+    <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-mono ${
+      done ? 'bg-emerald-900 text-emerald-300'
+        : current ? 'bg-blue-900 text-blue-300'
+        : 'bg-neutral-800 text-neutral-500'
+    }`}>
+      {done ? <Check className="w-3 h-3" /> : n}
+    </span>
   );
 }
