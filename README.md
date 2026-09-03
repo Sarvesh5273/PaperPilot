@@ -62,11 +62,11 @@ We don't just dump raw HTML into the agent's context window. Our bulletproof ful
 - Aggressively truncates academic boilerplate (References, Appendices, Acknowledgements) based on LaTeX classes.
 - Uses grammar-aware regex `(?<=[a-z]{3,}[.!?])` to flawlessly parse sentences, entirely bypassing abbreviations like `e.g.` and `et al.`
 
-> **Proof of Reliability: The 20-Paper Stress Test**
-> 
-> To prove our extraction heuristics aren't just "demo-ware", we ran an automated stress test across 20 highly diverse, seminal AI papers (including *Attention Is All You Need*, *ResNet*, *ViT*, and *Mistral 7B*). 
-> 
-> **Results:** Zero truncation errors and highly accurate heuristic extraction across all 20 tested papers, successfully isolating the Methodology, Key Claims, Limitations, and Conclusion without capturing boilerplate references. [Read the full methodology and extraction logs here](./docs/extraction-test.md).
+#### Proof of Reliability: The 20-Paper Stress Test
+
+To prove our extraction heuristics aren't just "demo-ware", we ran an automated stress test across 20 highly diverse, seminal AI papers (including *Attention Is All You Need*, *ResNet*, *ViT*, and *Mistral 7B*). 
+
+**Results:** Zero truncation errors and highly accurate heuristic extraction across all 20 tested papers, successfully isolating the Methodology, Key Claims, Limitations, and Conclusion without capturing boilerplate references. [Read the full methodology and extraction logs here](./docs/extraction-test.md).
 
 ### Overleaf-Ready Compilable LaTeX Export
 Generates flawless LaTeX `.tex` files that compile cleanly on the first try.
