@@ -8,21 +8,24 @@ import { Download, FileDown, FileText, CheckCircle, Loader2 } from 'lucide-react
 import { formatAPACitation, formatBibtexCitation, formatIEEECitation } from '@/lib/citations';
 import { loadCollections } from '@/lib/storage';
 import { buildDocxBlob, resolveSectionText, CitationFormat } from '@/lib/exportDocx';
+import { buildLatexDocument } from '@/lib/exportLatex';
+import { Copy, Check } from 'lucide-react';
 
 interface ExportDialogProps {
   outline?: PaperOutline;
   disabled?: boolean;
 }
 
-type ExportFormat = 'markdown' | 'docx' | 'bibtex';
+type ExportFormat = 'latex' | 'docx' | 'markdown' | 'bibtex';
 
 export function ExportDialog({ outline, disabled }: ExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [citationFormat, setCitationFormat] = useState<CitationFormat>('apa');
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
+  const [citationFormat, setCitationFormat] = useState<CitationFormat>('ieee');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('latex');
 
   const allPapers = useMemo(() => loadCollections().flatMap(c => c.papers) as Paper[], [open]);
 
@@ -62,6 +65,30 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
     references.length > 0 ? references.join('\n\n') : 'No references cited.'
   }`;
 
+  const latexContent = useMemo(() => {
+    if (!outline) return '';
+    return buildLatexDocument({
+      outline,
+      sections: sectionsToExport.map(s => ({
+        title: s.title,
+        text: s.humanEdit || s.agentDraft || '(Empty section)',
+      })),
+      citedPapers,
+      citationFormat,
+    });
+  }, [outline, sectionsToExport, citedPapers, citationFormat]);
+
+  const bibContent = useMemo(() => {
+    const bibSource = citedPapers.length > 0 ? citedPapers : allPapers;
+    return bibSource.map(formatBibtexCitation).join('\n\n');
+  }, [citedPapers, allPapers]);
+
+  const previewContent = useMemo(() => {
+    if (exportFormat === 'latex') return latexContent;
+    if (exportFormat === 'bibtex') return bibContent;
+    return markdownContent;
+  }, [exportFormat, latexContent, bibContent, markdownContent]);
+
   const triggerDownload = (blob: Blob, extension: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -75,9 +102,24 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
     window.setTimeout(() => setDownloaded(false), 2000);
   };
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(previewContent);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
   const handleDownload = async () => {
     if (!outline) return;
     setError(null);
+
+    if (exportFormat === 'latex') {
+      triggerDownload(new Blob([latexContent], { type: 'application/x-tex;charset=utf-8' }), 'tex');
+      return;
+    }
 
     if (exportFormat === 'markdown') {
       triggerDownload(new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' }), 'md');
@@ -90,7 +132,6 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
         setError('No papers available to export as BibTeX.');
         return;
       }
-      const bibContent = bibSource.map(formatBibtexCitation).join('\n\n');
       triggerDownload(new Blob([bibContent], { type: 'text/plain;charset=utf-8' }), 'bib');
       return;
     }
@@ -145,8 +186,9 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
                 onChange={e => setExportFormat(e.target.value as ExportFormat)}
                 className="w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-xs font-medium text-foreground outline-none shadow-2xs"
               >
-                <option value="markdown">Markdown (.md)</option>
+                <option value="latex">LaTeX (.tex) — Overleaf Ready</option>
                 <option value="docx">Word (.docx)</option>
+                <option value="markdown">Markdown (.md)</option>
                 <option value="bibtex">BibTeX (.bib)</option>
               </select>
             </label>
@@ -157,11 +199,29 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
                 onChange={e => setCitationFormat(e.target.value as CitationFormat)}
                 className="w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-xs font-medium text-foreground outline-none shadow-2xs"
               >
-                <option value="apa">APA (Author, Year)</option>
                 <option value="ieee">IEEE numbered [n]</option>
+                <option value="apa">APA (Author, Year)</option>
               </select>
             </label>
           </div>
+          {exportFormat === 'latex' && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
+              <span>
+                {citationFormat === 'ieee'
+                  ? 'Compiles with IEEEtran conference style on Overleaf.'
+                  : 'Compiles with standard academic article style on Overleaf.'}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopy}
+                className="h-6.5 px-2 text-[10px] font-semibold shrink-0 border-amber-500/40 bg-background/80 hover:bg-amber-500/20 gap-1"
+              >
+                {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
+                <span>{copied ? 'Copied!' : 'Copy LaTeX'}</span>
+              </Button>
+            </div>
+          )}
           {exportFormat === 'docx' && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
               {citationFormat === 'ieee'
@@ -170,29 +230,53 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
             </div>
           )}
           {error && <p className="text-xs font-medium text-rose-500">{error}</p>}
-          <pre className="h-52 overflow-y-auto rounded-xl border border-border/70 bg-muted/30 p-3 text-[11px] text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap">
-            {markdownContent}
-          </pre>
+          <div className="relative">
+            <pre className="h-52 overflow-y-auto rounded-xl border border-border/70 bg-muted/30 p-3 text-[11px] text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap">
+              {previewContent}
+            </pre>
+            {exportFormat !== 'docx' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopy}
+                className="absolute top-2 right-2 h-6 px-2 text-[10px] bg-background/90 border-border/80 shadow-2xs gap-1 opacity-80 hover:opacity-100"
+              >
+                {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
+              </Button>
+            )}
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleCopy}
+            className="h-8 px-3 text-xs font-medium rounded-xl gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copied ? 'Copied to clipboard' : 'Copy code'}</span>
+          </Button>
           <Button
             size="sm"
             onClick={handleDownload}
             disabled={exporting}
-            className="h-8.5 px-4 text-xs font-semibold rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-xs"
+            className="h-8.5 px-4 text-xs font-semibold rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-xs gap-1.5"
           >
             {exporting ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : downloaded ? (
-              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+              <CheckCircle className="w-3.5 h-3.5" />
             ) : (
-              <FileText className="w-3.5 h-3.5 mr-1.5" />
+              <FileText className="w-3.5 h-3.5" />
             )}
             <span>
               {exporting
                 ? 'Generating...'
                 : downloaded
                 ? 'Downloaded!'
+                : exportFormat === 'latex'
+                ? 'Download .tex'
                 : exportFormat === 'docx'
                 ? 'Download .docx'
                 : exportFormat === 'bibtex'
