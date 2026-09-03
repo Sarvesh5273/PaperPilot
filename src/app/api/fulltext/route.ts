@@ -12,7 +12,9 @@ function htmlToText(html: string): string {
   let text = html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, ' ');
+    .replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, ' ')
+    // Extract raw LaTeX from MathML to prevent duplicate presentation+source text
+    .replace(/<math[^>]*>[\s\S]*?<annotation[^>]*encoding="application\/x-tex"[^>]*>([\s\S]*?)<\/annotation>[\s\S]*?<\/math>/gi, '$$$1$$');
   const article = text.match(/<article[\s\S]*?<\/article>/i);
   if (article) text = article[0];
   return text

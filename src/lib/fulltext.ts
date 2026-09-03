@@ -1,4 +1,4 @@
-const CACHE_PREFIX = 'paperpilot:fulltext:';
+const CACHE_PREFIX = 'paperpilot:fulltext:v2:';
 const TTL = 24 * 60 * 60 * 1000;
 
 /** Fetch full paper text (HTML version) with 24h local cache. Throws if unavailable. */

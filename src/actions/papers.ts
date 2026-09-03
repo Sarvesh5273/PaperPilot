@@ -56,11 +56,11 @@ export async function extractFindingsAction(paperId: string, _depth?: string): P
 
   const normalizedId = paperId.trim();
 
-  // Return cached findings if present
+  // Return cached findings if present (require version 2 to avoid duplicate MathML bugs)
   const collections = loadCollections();
   for (const collection of collections) {
     const found = collection.papers.find(p => p.id === normalizedId);
-    if (found?.extractedFindings) {
+    if (found?.extractedFindings && (found.extractedFindings as any).version === 2) {
       return found.extractedFindings;
     }
   }
@@ -84,7 +84,8 @@ export async function extractFindingsAction(paperId: string, _depth?: string): P
   const findings: ExtractedFindings = {
     paperId: normalizedId,
     ...analyzePaperText(fullText, abstract || ''),
-  };
+    version: 2,
+  } as ExtractedFindings;
 
   let collectionUpdated = false;
   for (const col of collections) {
