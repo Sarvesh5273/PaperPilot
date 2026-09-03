@@ -24,11 +24,12 @@ export function CitationPicker({ onSelect }: CitationPickerProps) {
   if (allPapers.length === 0) return null;
   
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <select 
         value={selectedId}
         onChange={(e) => setSelectedId(e.target.value)}
-        className="bg-neutral-800 text-neutral-100 border border-neutral-700 rounded px-3 py-2 text-sm min-w-[200px]"
+        aria-label="Choose a paper to cite"
+        className="h-7 w-44 max-w-[42vw] bg-neutral-950 text-neutral-200 border border-neutral-700 rounded px-2 text-[11px]"
       >
         <option value="">Select paper to cite...</option>
         {allPapers.map(paper => (
@@ -42,8 +43,9 @@ export function CitationPicker({ onSelect }: CitationPickerProps) {
         disabled={!selectedId}
         variant="outline"
         size="sm"
+        className="h-7 px-2 text-[11px]"
       >
-        Insert
+        Cite
       </Button>
     </div>
   );

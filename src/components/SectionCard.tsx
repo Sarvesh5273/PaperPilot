@@ -12,7 +12,7 @@ import { saveOutlines, loadOutlines, loadCollections } from '@/lib/storage';
 import { formatInTextCitation, formatAPACitation } from '@/lib/citations';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CitationPicker } from './CitationPicker';
-import { Sparkles, Check, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
+import { Sparkles, Check, ShieldCheck, ArrowRight, Loader2, PencilLine } from 'lucide-react';
 
 interface SectionCardProps {
   outline: PaperOutline;
@@ -90,7 +90,7 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
   });
 
   return (
-    <Card className="bg-neutral-900 border-neutral-800 flex flex-col space-y-2 p-3">
+    <Card className="bg-neutral-900 border-neutral-800 flex flex-col space-y-3 p-4">
       <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-sm font-semibold text-neutral-200">{section.title}</CardTitle>
@@ -101,27 +101,33 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
             </Badge>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Button size="sm" variant="outline" onClick={handleDraft} disabled={drafting} className="h-7 text-xs border-neutral-700">
             {drafting ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1 text-amber-400" />}
             {drafting ? 'Drafting...' : 'Draft'}
           </Button>
-          <CitationPicker onSelect={handleInsertCitation} />
           <Button size="sm" variant={section.status === 'approved' ? 'default' : 'secondary'} onClick={handleApprove} className="h-7 text-xs">
             <Check className="w-3 h-3 mr-1" /> {section.status === 'approved' ? 'Approved' : 'Approve'}
           </Button>
         </div>
       </CardHeader>
 
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-800 bg-neutral-950/60 px-2.5 py-2">
+        <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+          <PencilLine className="h-3.5 w-3.5 text-blue-400" /> Review the source draft, then make this section your own.
+        </p>
+        <CitationPicker onSelect={handleInsertCitation} />
+      </div>
+
       <CardContent className="p-0 flex-1 flex flex-col space-y-2">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'draft' | 'edit' | 'preview')} className="flex flex-col flex-1">
           <TabsList className="bg-neutral-950 grid grid-cols-3 h-8">
-            <TabsTrigger value="draft" className="text-xs">Agent Draft</TabsTrigger>
-            <TabsTrigger value="edit" className="text-xs">My Edit</TabsTrigger>
-            <TabsTrigger value="preview" className="text-xs">Final Preview</TabsTrigger>
+            <TabsTrigger value="draft" className="text-xs">Source Draft</TabsTrigger>
+            <TabsTrigger value="edit" className="text-xs">Write & Edit</TabsTrigger>
+            <TabsTrigger value="preview" className="text-xs">Reading View</TabsTrigger>
           </TabsList>
           <TabsContent value="draft" className="m-0 pt-2 text-xs leading-relaxed text-neutral-300 min-h-[160px] max-h-[220px] overflow-y-auto">
-            {!section.agentDraft ? <div className="text-neutral-500 italic space-y-1"><p>No agent draft generated yet.</p><p className="not-italic text-[10px]">Click Draft to synthesize this section from the collection.</p></div> :
+            {!section.agentDraft ? <div className="text-neutral-500 italic space-y-1"><p>No source draft generated yet.</p><p className="not-italic text-[10px]">Click Draft to create a research-grounded starting point from the collection.</p></div> :
               section.agentDraft.split(/(\{\{[^}]+\}\})/).map((chunk, i) => chunk.startsWith('{{') ?
                 <span key={i} className="bg-amber-500/20 text-amber-300 font-mono px-1 py-0.5 rounded">{chunk}</span> :
                 <span key={i}>{chunk}</span>
@@ -131,13 +137,13 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
             <Textarea
               value={section.humanEdit}
               onChange={(e) => updateText(e.target.value)}
-              placeholder="Write or edit section content here..."
-              className="min-h-[160px] max-h-[220px] bg-neutral-950 border-neutral-800 text-xs text-neutral-200 resize-none"
+              placeholder="Write, revise, and shape this section here..."
+              className="min-h-[260px] max-h-[420px] bg-neutral-950 border-neutral-800 text-sm leading-relaxed text-neutral-200 resize-y"
             />
             <div className="text-[10px] text-neutral-500 text-right">{section.humanEdit.length} chars | {section.humanEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
           </TabsContent>
           <TabsContent value="preview" className="m-0 pt-2 text-xs leading-relaxed text-neutral-200 min-h-[160px] max-h-[220px] overflow-y-auto whitespace-pre-wrap">
-            {previewText || <span className="text-neutral-500 italic">No content available for preview.</span>}
+            {previewText || <span className="text-neutral-500 italic">Your edited section will appear here as a clean reading view.</span>}
           </TabsContent>
         </Tabs>
 

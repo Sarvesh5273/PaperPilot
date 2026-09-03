@@ -9,7 +9,10 @@ export function formatAPACitation(paper: { title: string; authors: string[]; pub
   return `${authors} (${year}). ${paper.title}. arXiv preprint arXiv:${paper.id}. https://doi.org/10.48550/arXiv.${paper.id}`;
 }
 
-export function formatIEEECitation(paper: { title: string; authors: string[]; published: string; id: string }): string {
+export function formatIEEECitation(
+  paper: { title: string; authors: string[]; published: string; id: string },
+  referenceNumber?: number
+): string {
   const authors = paper.authors.map(a => {
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return 'Unknown';
@@ -18,7 +21,12 @@ export function formatIEEECitation(paper: { title: string; authors: string[]; pu
     return initials ? `${initials} ${last}` : last;
   }).join(', ');
   const year = paper.published.split('-')[0] || new Date().getFullYear().toString();
-  return `${authors}, "${paper.title}," arXiv preprint arXiv:${paper.id}, ${year}. https://doi.org/10.48550/arXiv.${paper.id}`;
+  const prefix = referenceNumber ? `[${referenceNumber}] ` : '';
+  return `${prefix}${authors}, "${paper.title}," arXiv preprint arXiv:${paper.id}, ${year}. https://doi.org/10.48550/arXiv.${paper.id}`;
+}
+
+export function formatIEEEInTextCitation(referenceNumber: number): string {
+  return `[${referenceNumber}]`;
 }
 
 export function formatInTextCitation(authors: string[], year: string): string {

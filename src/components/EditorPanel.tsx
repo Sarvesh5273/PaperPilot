@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,19 +14,41 @@ import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2 
 export function EditorPanel() {
   const outlines = useOutlines();
   const collections = useCollections();
-  const activeOutline = outlines[0];
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!activeCollectionId || !collections.some((collection) => collection.id === activeCollectionId)) {
+      setActiveCollectionId(collections[0]?.id || null);
+    }
+  }, [activeCollectionId, collections]);
+
+  useEffect(() => {
+    const handleActiveCollection = (event: Event) => {
+      const detail = (event as CustomEvent<{ collectionId?: string }>).detail;
+      if (detail?.collectionId) {
+        setActiveCollectionId(detail.collectionId);
+        setSelectedSectionId(null);
+      }
+    };
+    window.addEventListener('paperpilot:active-collection-changed', handleActiveCollection);
+    return () => window.removeEventListener('paperpilot:active-collection-changed', handleActiveCollection);
+  }, []);
+
+  const activeCollection = collections.find((collection) => collection.id === activeCollectionId) || collections[0];
+  const activeOutline = activeCollection
+    ? outlines.find((outline) => outline.collectionId === activeCollection.id)
+    : outlines[0];
   const activeSection =
     activeOutline?.sections.find((s) => s.id === selectedSectionId) ||
     activeOutline?.sections[0];
-  const activeCollection = collections.find(c => c.id === activeOutline?.collectionId) || collections[0];
   const hasSourcePapers = Boolean(activeCollection?.papers.length);
 
   const handleGenerateOutline = async (type: 'literature_review' | 'research_article' | 'thesis_chapter' = 'literature_review') => {
-    const colId = collections[0]?.id || 'preseed-webmcp';
+    const colId = activeCollection?.id;
+    if (!colId) return;
     setGenerating(true);
     setGenerationError(null);
     try {
@@ -56,14 +78,14 @@ export function EditorPanel() {
         <CardHeader className="p-3 pb-2 flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-blue-400" />
-            <span>{activeOutline?.title || 'Paper Outline'}</span>
+            <span>{activeOutline?.title || `${activeCollection?.name || 'Paper'} workspace`}</span>
           </CardTitle>
           <div className="flex items-center gap-1.5">
             <ExportDialog outline={activeOutline} disabled={!activeOutline} />
             {!activeOutline && (
-              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} disabled={generating || !collections[0]?.papers.length} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
+              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} disabled={generating || !hasSourcePapers} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
                 {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 mr-1" />}
-                {generating ? 'Building...' : collections[0]?.papers.length ? 'Generate Outline' : 'Add papers first'}
+                {generating ? 'Building...' : hasSourcePapers ? 'Generate Outline' : 'Add papers first'}
               </Button>
             )}
           </div>
@@ -74,8 +96,8 @@ export function EditorPanel() {
               <div className="flex items-start gap-2.5">
                 <Library className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-neutral-200">Turn your collection into a working draft</p>
-                  <p className="text-[11px] text-neutral-500 mt-1">PaperPilot will create sections from your saved papers, then you can draft and review each one.</p>
+                  <p className="text-xs font-medium text-neutral-200">Turn this collection into a working paper</p>
+                  <p className="text-[11px] text-neutral-500 mt-1">Save sources, create an outline, then write and revise each section in one place.</p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-[10px] text-neutral-500">
