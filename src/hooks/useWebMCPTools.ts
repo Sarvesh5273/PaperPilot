@@ -8,10 +8,13 @@ import {
   findRelatedAction,
   addToCollectionAction,
   getCollectionAction,
-} from '@/actions/papers';
+  findEvidenceAction,
+} 
+from '@/actions/papers';
 import {
   generateOutlineAction,
   draftSectionAction,
+  reviseSectionAction,
   insertCitationAction,
   verifyClaimAction,
   suggestTransitionAction,
@@ -19,7 +22,7 @@ import {
 import { logToolCall } from '@/lib/storage';
 
 export function useWebMCPTools() {
-  // RESEARCH TOOLS (6)
+  // RESEARCH TOOLS (7)
   useWebMCP({
     name: 'search_papers',
     description: 'Search arXiv for academic papers by topic, date range, venue, and citation filters. Returns structured paper metadata including title, authors, abstract, and arXiv ID.',
@@ -58,7 +61,7 @@ export function useWebMCPTools() {
 
   useWebMCP({
     name: 'extract_findings',
-    description: 'Extract structured findings from a specific paper: research question, methodology, key claims, limitations, and conclusion summary.',
+    description: 'Extract structured findings from a specific paper: research question, methodology, key claims, limitations, and conclusion summary. Grounded in the paper\'s full text when available.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -77,6 +80,33 @@ export function useWebMCPTools() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Extraction failed';
         logToolCall('extract_findings', input, { error: msg }, Date.now() - start);
+        throw new Error(msg);
+      }
+    }
+  });
+
+  useWebMCP({
+    name: 'find_evidence',
+    description: 'Search a paper\'s full text for evidence matching a query. Returns the most relevant quoted sentences with relevance scores. Use this to answer specific factual questions (exact numbers, methods, datasets, findings) that go beyond the extracted findings summary — including answering the user\'s follow-up questions about a paper.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paper_id: { type: 'string', description: 'arXiv ID of the paper to search' },
+        query: { type: 'string', description: 'What to look for, e.g. "p95 latency overhead" or "evaluation setup"' },
+        max_results: { type: 'integer', minimum: 1, maximum: 10, default: 5 }
+      },
+      required: ['paper_id', 'query']
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async (input: { paper_id: string; query: string; max_results?: number }) => {
+      const start = Date.now();
+      try {
+        const result = await findEvidenceAction(input.paper_id, input.query, input.max_results);
+        logToolCall('find_evidence', input, result, Date.now() - start);
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Evidence search failed';
+        logToolCall('find_evidence', input, { error: msg }, Date.now() - start);
         throw new Error(msg);
       }
     }
@@ -192,10 +222,10 @@ export function useWebMCPTools() {
     }
   });
 
-  // WRITING TOOLS (5)
+  // WRITING TOOLS (6)
   useWebMCP({
     name: 'generate_outline',
-    description: 'Generate a structured paper outline from a collection. Creates sections (Introduction, Literature Review, Methodology, Results, Conclusion) based on paper themes.',
+    description: 'Generate a structured paper outline from a collection — supports literature reviews, research articles (with Abstract), and thesis chapters.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -222,7 +252,7 @@ export function useWebMCPTools() {
 
   useWebMCP({
     name: 'draft_section',
-    description: 'Draft a paper section using template-based synthesis from collection papers. Inserts {{paperId}} citation placeholders for human verification.',
+    description: 'Draft a paper section using template-based synthesis from collection papers. Inserts {{paperId}} citation placeholders for human verification. For higher-quality prose, compose the section in chat with the user and save it with revise_section.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -243,6 +273,33 @@ export function useWebMCPTools() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Drafting failed';
         logToolCall('draft_section', input, { error: msg }, Date.now() - start);
+        throw new Error(msg);
+      }
+    }
+  });
+
+  useWebMCP({
+    name: 'revise_section',
+    description: 'Replace the editable text of a paper section with revised prose — use this to save text the agent composed in chat after user feedback, so the human can review it in the app and export it. Sets the section status to "editing" for human review.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        section_id: { type: 'string', description: 'ID of the section to update' },
+        new_text: { type: 'string', description: 'The full revised prose for this section' }
+      },
+      required: ['section_id', 'new_text']
+    },
+    annotations: { readOnlyHint: false },
+    execute: async (input: { section_id: string; new_text: string }) => {
+      const start = Date.now();
+      try {
+        const result = await reviseSectionAction(input.section_id, input.new_text);
+        window.dispatchEvent(new CustomEvent('paperpilot:outlines-changed'));
+        logToolCall('revise_section', input, result, Date.now() - start);
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to revise section';
+        logToolCall('revise_section', input, { error: msg }, Date.now() - start);
         throw new Error(msg);
       }
     }
@@ -277,7 +334,7 @@ export function useWebMCPTools() {
 
   useWebMCP({
     name: 'verify_claim',
-    description: 'Verify that a claim in a section is supported by the cited paper using keyword alignment scoring.',
+    description: 'Verify that a claim in a section is supported by the cited paper. Checks against the paper\'s full text and returns the closest quoted source sentence with an overlap score.',
     inputSchema: {
       type: 'object',
       properties: {

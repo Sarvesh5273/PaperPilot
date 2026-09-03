@@ -334,3 +334,50 @@ export async function verifyClaimAction(
       : `Weak support (${pct}% overlap) — inspect ${paper.title} manually. ${quote}`,
   };
 }
+
+/** Retrieve the most relevant quoted sentences from a paper's FULL TEXT for a given query. */
+export async function findEvidenceAction(
+  paperId: string,
+  query: string,
+  maxResults = 5
+): Promise<{
+  paperId: string;
+  query: string;
+  evidence: Array<{ quote: string; relevanceScore: number }>;
+  source: 'full_text' | 'abstract';
+}> {
+  if (!paperId || !paperId.trim()) throw new Error('Paper ID cannot be empty.');
+  if (!query || !query.trim()) throw new Error('Query cannot be empty.');
+
+  const collections = loadCollections();
+  const allPapers = collections.flatMap(c => c.papers);
+  const paper = allPapers.find(p => p.id === paperId.trim());
+  if (!paper) throw new Error(`Paper ${paperId} not found in any collection.`);
+
+  let corpus: string;
+  let source: 'full_text' | 'abstract';
+  try {
+    corpus = await getFullText(paper.id);
+    source = 'full_text';
+  } catch {
+    corpus = [paper.abstract, ...(paper.extractedFindings?.keyClaims || [])].join(' ');
+    source = 'abstract';
+  }
+
+  const queryTokens = tokenize(query);
+  if (queryTokens.size === 0) throw new Error('Query has no distinctive keywords.');
+
+  const evidence = splitSentences(corpus)
+    .map(sentence => {
+      const st = tokenize(sentence);
+      let overlap = 0;
+      queryTokens.forEach(t => { if (st.has(t)) overlap++; });
+      return { quote: sentence, score: overlap / queryTokens.size };
+    })
+    .filter(e => e.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(maxResults, 10))
+    .map(e => ({ quote: e.quote.slice(0, 350), relevanceScore: parseFloat(e.score.toFixed(2)) }));
+
+  return { paperId: paper.id, query, evidence, source };
+}

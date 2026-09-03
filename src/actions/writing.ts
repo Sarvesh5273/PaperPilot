@@ -314,3 +314,34 @@ export async function suggestTransitionAction(
 
   return { transitionText };
 }
+
+export async function reviseSectionAction(
+  arg1: string,
+  arg2: string,
+  arg3?: string
+): Promise<{ sectionId: string; textLength: number }> {
+  const outlines = loadOutlines();
+  let outline: PaperOutline | undefined;
+  let section: PaperSection | undefined;
+  const newText = (arg3 || arg2 || '').trim();
+
+  if (arg3) {
+    outline = outlines.find(o => o.id === arg1);
+    section = outline?.sections.find(s => s.id === arg2);
+  }
+  if (!section) {
+    for (const o of outlines) {
+      const found = o.sections.find(s => s.id === arg1);
+      if (found) { outline = o; section = found; break; }
+    }
+  }
+  if (!outline || !section) throw new Error(`Section "${arg1}" not found in any outline.`);
+  if (!newText) throw new Error('new_text cannot be empty.');
+
+  section.humanEdit = newText;
+  if (section.status === 'draft') section.status = 'editing';
+  saveOutlines(outlines);
+
+  window.dispatchEvent(new CustomEvent('paperpilot:outlines-changed'));
+  return { sectionId: section.id, textLength: newText.length };
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const maxDuration = 30; // Vercel function timeout
+export const maxDuration = 30;
 
 const SOURCES = [
   (id: string) => `https://arxiv.org/html/${id}v1`,
