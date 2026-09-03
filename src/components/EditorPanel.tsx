@@ -9,7 +9,8 @@ import { useCollections } from '@/hooks/useCollections';
 import { generateOutlineAction } from '@/actions/writing';
 import { SectionCard } from './SectionCard';
 import { ExportDialog } from './ExportDialog';
-import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2, Check } from 'lucide-react';
+import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2, Check, X } from 'lucide-react';
+import { loadOutlines, saveOutlines } from '@/lib/storage';
 
 type PaperType = 'literature_review' | 'research_article' | 'thesis_chapter';
 
@@ -74,6 +75,14 @@ export function EditorPanel() {
     }
   };
 
+  const handleCloseOutline = () => {
+    if (!activeOutline) return;
+    const remaining = loadOutlines().filter(o => o.id !== activeOutline.id);
+    saveOutlines(remaining);
+    setSelectedSectionId(null);
+    window.dispatchEvent(new CustomEvent('paperpilot:outlines-changed'));
+  };
+
   const getStatusIcon = (status: string) => {
     if (status === 'approved') return <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />;
     if (status === 'editing') return <Clock className="w-3 h-3 text-amber-400 shrink-0" />;
@@ -95,7 +104,14 @@ export function EditorPanel() {
           </CardTitle>
           <div className="flex items-center gap-1.5">
             <ExportDialog outline={activeOutline} disabled={!activeOutline} />
-            {!activeOutline && (
+            {activeOutline ? (
+              <Button
+                size="sm" variant="outline" onClick={handleCloseOutline}
+                className="h-7 text-[11px] border-neutral-700 text-neutral-400 hover:text-rose-300 hover:border-rose-800"
+              >
+                <X className="w-3 h-3 mr-1" /> Close outline
+              </Button>
+            ) : (
               <>
                 <select
                   aria-label="Paper type"
