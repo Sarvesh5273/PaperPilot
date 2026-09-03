@@ -182,7 +182,7 @@ export async function findRelatedAction(
 
 export async function addToCollectionAction(
   paperId: string,
-  collectionName = 'WebMCP Security',
+  collectionName = 'My Research',
   annotation = '',
   rating?: number
 ): Promise<{ success: boolean; collectionSize: number; collectionId: string }> {
