@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useCollections } from '@/hooks/useCollections';
 import { saveCollections } from '@/lib/storage';
 import { comparePapersAction, extractFindingsAction } from '@/actions/papers';
@@ -54,6 +55,8 @@ export function CollectionSidebar() {
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
   const [matrix, setMatrix] = useState<MatrixCell[] | null>(null);
+  const [comparedTitles, setComparedTitles] = useState<string[]>([]);
+  const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [extracting, setExtracting] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -113,6 +116,9 @@ export function CollectionSidebar() {
     setCompareError(null);
   };
 
+  const selectedPapers = activeCollection?.papers.filter(p => selectedIds.has(p.id)) || [];
+  const unanalyzedSelected = selectedPapers.filter(p => !p.extractedFindings);
+
   const handleExtract = async (paperId: string) => {
     setExtracting(prev => ({ ...prev, [paperId]: true }));
     try {
@@ -127,11 +133,17 @@ export function CollectionSidebar() {
 
   const handleCompare = async () => {
     if (selectedIds.size < 2) return;
+    if (unanalyzedSelected.length > 0) {
+      setCompareError(`Extract findings for ${unanalyzedSelected.length} selected paper${unanalyzedSelected.length > 1 ? 's' : ''} first — open the paper card and click Extract.`);
+      return;
+    }
     setComparing(true);
     setCompareError(null);
     try {
       const result = await comparePapersAction(Array.from(selectedIds), COMPARE_DIMENSIONS);
       setMatrix(result.comparisonMatrix);
+      setComparedTitles(selectedPapers.map(p => p.title));
+      setCompareDialogOpen(true);
     } catch (err) {
       setCompareError(err instanceof Error ? err.message : 'Comparison failed.');
       setMatrix(null);
@@ -140,13 +152,8 @@ export function CollectionSidebar() {
     }
   };
 
-  const comparedPapers = activeCollection?.papers.filter(p => selectedIds.has(p.id)) || [];
   const cellValue = (dim: string, paperId: string) =>
     matrix?.find(c => c.dimension === dim && c.paperId === paperId)?.value || NOT_STATED;
-  const shortTitle = (title: string) => {
-    const words = title.split(' ');
-    return words.length > 5 ? `${words.slice(0, 5).join(' ')}…` : title;
-  };
 
   return (
     <Card className="bg-neutral-900 border-neutral-800 flex flex-col h-full">
@@ -172,7 +179,7 @@ export function CollectionSidebar() {
       </CardHeader>
       <CardContent className="p-2 flex-1 overflow-hidden flex flex-col">
         {activeCollection && activeCollection.papers.length >= 2 && (
-          <div className="mb-2 space-y-1 shrink-0">
+          <div className="mb-2 shrink-0">
             <div className="flex items-center gap-2">
               <Button
                 size="sm" variant="outline" onClick={handleCompare}
@@ -186,31 +193,7 @@ export function CollectionSidebar() {
                 {selectedIds.size < 2 ? 'Select 2–5 papers to compare' : `${selectedIds.size} of ${MAX_COMPARE} max selected`}
               </span>
             </div>
-            {compareError && <p className="text-[10px] text-rose-400">{compareError}</p>}
-            {matrix && comparedPapers.length > 0 && (
-              <div className="rounded border border-neutral-800 bg-neutral-950 p-2 overflow-x-auto">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="text-left text-neutral-500">
-                      <th className="py-1 pr-2 font-medium whitespace-nowrap">Dimension</th>
-                      {comparedPapers.map(p => (
-                        <th key={p.id} className="py-1 pr-2 font-medium align-top text-neutral-400">{shortTitle(p.title)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {COMPARE_DIMENSIONS.map(dim => (
-                      <tr key={dim} className="border-t border-neutral-900 align-top">
-                        <td className="py-1.5 pr-2 text-neutral-500 capitalize whitespace-nowrap">{dim}</td>
-                        {comparedPapers.map(p => (
-                          <td key={p.id} className="py-1.5 pr-2 text-neutral-300">{cellValue(dim, p.id)}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {compareError && <p className="text-[10px] text-rose-400 mt-1">{compareError}</p>}
           </div>
         )}
         <ScrollArea className="flex-1">
@@ -293,6 +276,51 @@ export function CollectionSidebar() {
           )}
         </ScrollArea>
       </CardContent>
+
+      <Dialog open={compareDialogOpen} onOpenChange={setCompareDialogOpen}>
+        <DialogContent className="max-w-3xl bg-neutral-900 border-neutral-800 text-neutral-200">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <BarChart2 className="w-4 h-4 text-blue-400" />
+              Paper comparison ({comparedTitles.length} papers)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-[11px]">
+              <thead>
+                <tr className="text-left text-neutral-500">
+                  <th className="py-2 pr-3 font-medium whitespace-nowrap align-top">Dimension</th>
+                  {comparedTitles.map((title, i) => (
+                    <th key={i} className="py-2 pr-3 font-medium align-top text-neutral-300 w-1/3">
+                      <span className="text-neutral-500 font-mono mr-1">[{i + 1}]</span>{title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE_DIMENSIONS.map(dim => (
+                  <tr key={dim} className="border-t border-neutral-800 align-top">
+                    <td className="py-2.5 pr-3 text-neutral-500 capitalize whitespace-nowrap">{dim}</td>
+                    {selectedPapers.map(p => (
+                      <td key={p.id} className="py-2.5 pr-3 text-neutral-300">{cellValue(dim, p.id)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="rounded border border-neutral-800 bg-neutral-950 p-2.5 text-[11px] text-neutral-400">
+            <span className="text-blue-400 font-medium">Agent tip: </span>
+            for a richer narrative comparison, ask ChatGPT in the browser:
+            <code className="block mt-1 text-[10px] text-neutral-300 font-mono">&ldquo;Use compare_papers on the {comparedTitles.length} selected papers and summarize the key trade-offs in prose.&rdquo;</code>
+          </div>
+          <DialogFooter>
+            <Button size="sm" onClick={() => setCompareDialogOpen(false)} className="h-7 text-xs bg-neutral-800 hover:bg-neutral-700">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
