@@ -7,14 +7,14 @@ Because arXiv papers have highly variable formatting (different LaTeX macros, mi
 ## Methodology
 The test bypassed standard API limits to aggressively fetch HTML from arXiv/ar5iv. It applied our custom WebMCP truncation rules, grammar-aware sentence splitting `(?<=[a-z]{3,}[.!?])`, and regex targeting to extract four critical dimensions: **Methodology**, **Key Claims**, **Limitations**, and **Conclusion**.
 
-## Results: 100% Success Rate
+### Results: Extraction Metrics
 
 | Metric | Success Rate |
-|--------|--------------|
-| Methodology Extracted | 20 / 20 (100%) |
-| Key Claims Extracted | 20 / 20 (100%) |
-| Limitations Extracted | 20 / 20 (100%) |
-| Conclusion Extracted | 20 / 20 (100%) |
+|---|---|
+| Methodology Extracted | 20 / 20 |
+| Key Claims Extracted | 20 / 20 |
+| Limitations Extracted | 20 / 20 |
+| Conclusion Extracted | 20 / 20 |
 
 ## Extraction Samples
 

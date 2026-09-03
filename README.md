@@ -66,7 +66,7 @@ We don't just dump raw HTML into the agent's context window. Our bulletproof ful
 > 
 > To prove our extraction heuristics aren't just "demo-ware", we ran an automated stress test across 20 highly diverse, seminal AI papers (including *Attention Is All You Need*, *ResNet*, *ViT*, and *Mistral 7B*). 
 > 
-> **Results:** 100% success rate in accurately extracting the Methodology, Key Claims, Limitations, and Conclusion without truncating context or capturing boilerplate references. [Read the full methodology and extraction logs here](./docs/extraction-test.md).
+> **Results:** Zero truncation errors and highly accurate heuristic extraction across all 20 tested papers, successfully isolating the Methodology, Key Claims, Limitations, and Conclusion without capturing boilerplate references. [Read the full methodology and extraction logs here](./docs/extraction-test.md).
 
 ### Overleaf-Ready Compilable LaTeX Export
 Generates flawless LaTeX `.tex` files that compile cleanly on the first try.
