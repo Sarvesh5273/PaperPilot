@@ -201,7 +201,7 @@ export async function addToCollectionAction(
       papers: [],
       createdAt: new Date().toISOString(),
     };
-    collections.push(collection);
+    collections.unshift(collection);
   }
 
   // If already in collection, update annotation/rating

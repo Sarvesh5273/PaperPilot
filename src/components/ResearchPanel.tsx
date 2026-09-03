@@ -10,12 +10,19 @@ import { Search, Plus, Check } from 'lucide-react';
 import { Paper } from '@/types';
 import { searchPapersAction, addToCollectionAction } from '@/actions/papers';
 import { CollectionSidebar } from './CollectionSidebar';
+import { useCollections } from '@/hooks/useCollections';
 
 export function ResearchPanel() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Paper[]>([]);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
+  const collections = useCollections();
+  const [collectionName, setCollectionName] = useState('');
+
+  useEffect(() => {
+    if (!collectionName && collections[0]?.name) setCollectionName(collections[0].name);
+  }, [collectionName, collections]);
 
   useEffect(() => {
     const handleAgentSearch = (event: Event) => {
@@ -27,7 +34,15 @@ export function ResearchPanel() {
     };
 
     window.addEventListener('paperpilot:search-results-changed', handleAgentSearch);
-    return () => window.removeEventListener('paperpilot:search-results-changed', handleAgentSearch);
+    const handleActiveCollection = (event: Event) => {
+      const detail = (event as CustomEvent<{ collectionName?: string }>).detail;
+      if (detail?.collectionName) setCollectionName(detail.collectionName);
+    };
+    window.addEventListener('paperpilot:active-collection-changed', handleActiveCollection);
+    return () => {
+      window.removeEventListener('paperpilot:search-results-changed', handleAgentSearch);
+      window.removeEventListener('paperpilot:active-collection-changed', handleActiveCollection);
+    };
   }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -46,8 +61,12 @@ export function ResearchPanel() {
 
   const handleAdd = async (paper: Paper) => {
     try {
-      await addToCollectionAction(paper.id, 'WebMCP Security', '', 3);
+      const targetCollection = collectionName.trim() || collections[0]?.name || 'My Research';
+      const result = await addToCollectionAction(paper.id, targetCollection, '', 3);
       window.dispatchEvent(new CustomEvent('paperpilot:collections-changed'));
+      window.dispatchEvent(new CustomEvent('paperpilot:active-collection-changed', {
+        detail: { collectionId: result.collectionId, collectionName: targetCollection },
+      }));
       setAddedIds((prev) => ({ ...prev, [paper.id]: true }));
     } catch (err) {
       console.error('Failed to add paper', err);
@@ -77,6 +96,17 @@ export function ResearchPanel() {
               <Search className="w-3.5 h-3.5" />
             </Button>
           </form>
+
+          <label className="flex items-center gap-2 text-[10px] text-neutral-500">
+            <span className="shrink-0">Save to</span>
+            <Input
+              aria-label="Collection name"
+              placeholder="Collection name"
+              value={collectionName}
+              onChange={(e) => setCollectionName(e.target.value)}
+              className="bg-neutral-950 border-neutral-800 text-[11px] h-7"
+            />
+          </label>
 
           <ScrollArea className="flex-1 overflow-y-auto max-h-[70vh] rounded border border-neutral-800 bg-neutral-900/50 p-2">
             {loading && <div className="text-center p-4 text-xs text-neutral-400">Searching arXiv...</div>}

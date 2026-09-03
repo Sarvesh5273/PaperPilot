@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,32 @@ import { Bookmark, Star, Trash2 } from 'lucide-react';
 
 export function CollectionSidebar() {
   const collections = useCollections();
-  const activeCollection = collections[0];
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleActiveCollection = (event: Event) => {
+      const detail = (event as CustomEvent<{ collectionId?: string }>).detail;
+      if (detail?.collectionId) setActiveCollectionId(detail.collectionId);
+    };
+    window.addEventListener('paperpilot:active-collection-changed', handleActiveCollection);
+    return () => window.removeEventListener('paperpilot:active-collection-changed', handleActiveCollection);
+  }, []);
+
+  useEffect(() => {
+    if (!activeCollectionId || !collections.some(c => c.id === activeCollectionId)) {
+      setActiveCollectionId(collections[0]?.id || null);
+    }
+  }, [activeCollectionId, collections]);
+
+  const activeCollection = collections.find(c => c.id === activeCollectionId) || collections[0];
+
+  const handleCollectionChange = (collectionId: string) => {
+    setActiveCollectionId(collectionId);
+    const selected = collections.find(c => c.id === collectionId);
+    window.dispatchEvent(new CustomEvent('paperpilot:active-collection-changed', {
+      detail: { collectionId, collectionName: selected?.name },
+    }));
+  };
 
   const handleRemovePaper = (paperId: string) => {
     if (!activeCollection) return;
@@ -33,7 +58,16 @@ export function CollectionSidebar() {
         <div className="flex justify-between items-center">
           <CardTitle className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
             <Bookmark className="w-3.5 h-3.5 text-blue-400" />
-            <span>{activeCollection?.name || 'Collection'}</span>
+            {collections.length > 1 ? (
+              <select
+                aria-label="Active collection"
+                value={activeCollection?.id || ''}
+                onChange={(e) => handleCollectionChange(e.target.value)}
+                className="bg-transparent text-xs text-neutral-200 outline-none max-w-[150px]"
+              >
+                {collections.map(collection => <option key={collection.id} value={collection.id}>{collection.name}</option>)}
+              </select>
+            ) : <span>{activeCollection?.name || 'Collection'}</span>}
           </CardTitle>
           <Badge variant="outline" className="text-[10px] border-neutral-700 text-neutral-400">
             {activeCollection?.papers.length || 0} papers

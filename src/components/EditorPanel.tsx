@@ -22,6 +22,8 @@ export function EditorPanel() {
   const activeSection =
     activeOutline?.sections.find((s) => s.id === selectedSectionId) ||
     activeOutline?.sections[0];
+  const activeCollection = collections.find(c => c.id === activeOutline?.collectionId) || collections[0];
+  const hasSourcePapers = Boolean(activeCollection?.papers.length);
 
   const handleGenerateOutline = async (type: 'literature_review' | 'research_article' | 'thesis_chapter' = 'literature_review') => {
     const colId = collections[0]?.id || 'preseed-webmcp';
@@ -59,9 +61,9 @@ export function EditorPanel() {
           <div className="flex items-center gap-1.5">
             <ExportDialog outline={activeOutline} disabled={!activeOutline} />
             {!activeOutline && (
-              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} disabled={generating} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
+              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} disabled={generating || !collections[0]?.papers.length} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
                 {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 mr-1" />}
-                {generating ? 'Building...' : 'Generate Outline'}
+                {generating ? 'Building...' : collections[0]?.papers.length ? 'Generate Outline' : 'Add papers first'}
               </Button>
             )}
           </div>
@@ -86,7 +88,7 @@ export function EditorPanel() {
           ) : (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[10px] text-neutral-500">
-                <span>{collections.find(c => c.id === activeOutline.collectionId)?.name || 'Current collection'}</span>
+                <span>{activeCollection?.name || 'Current collection'} · {activeCollection?.papers.length || 0} source papers</span>
                 <span>{activeOutline.sections.filter(s => s.status === 'approved').length}/{activeOutline.sections.length} sections approved</span>
               </div>
               <ul className="flex flex-wrap gap-1.5">
@@ -115,7 +117,15 @@ export function EditorPanel() {
       </Card>
 
       <div className="flex-1 overflow-y-auto">
-        {activeOutline && activeSection ? (
+        {activeOutline && !hasSourcePapers ? (
+          <Card className="bg-neutral-900 border-neutral-800 p-8 text-center text-xs text-neutral-500">
+            <div className="flex flex-col items-center gap-2">
+              <Library className="w-5 h-5 text-amber-400" />
+              <p className="text-neutral-300">Your outline is waiting for source papers.</p>
+              <p>Add papers from the Research tab, then return here to draft grounded sections.</p>
+            </div>
+          </Card>
+        ) : activeOutline && activeSection ? (
           <SectionCard outline={activeOutline} section={activeSection} nextSectionId={nextSectionId} />
         ) : (
           <Card className="bg-neutral-900 border-neutral-800 p-8 text-center text-xs text-neutral-500">
