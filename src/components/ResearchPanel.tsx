@@ -19,10 +19,15 @@ export function ResearchPanel() {
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const collections = useCollections();
   const [collectionName, setCollectionName] = useState('');
+  const [collectionNameInitialized, setCollectionNameInitialized] = useState(false);
+  const [collectionError, setCollectionError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!collectionName && collections[0]?.name) setCollectionName(collections[0].name);
-  }, [collectionName, collections]);
+    if (!collectionNameInitialized && collections[0]?.name) {
+      setCollectionName(collections[0].name);
+      setCollectionNameInitialized(true);
+    }
+  }, [collectionNameInitialized, collections]);
 
   useEffect(() => {
     const handleAgentSearch = (event: Event) => {
@@ -36,7 +41,10 @@ export function ResearchPanel() {
     window.addEventListener('paperpilot:search-results-changed', handleAgentSearch);
     const handleActiveCollection = (event: Event) => {
       const detail = (event as CustomEvent<{ collectionName?: string }>).detail;
-      if (detail?.collectionName) setCollectionName(detail.collectionName);
+      if (detail?.collectionName) {
+        setCollectionName(detail.collectionName);
+        setCollectionError(null);
+      }
     };
     window.addEventListener('paperpilot:active-collection-changed', handleActiveCollection);
     return () => {
@@ -60,14 +68,20 @@ export function ResearchPanel() {
   };
 
   const handleAdd = async (paper: Paper) => {
+    const targetCollection = collectionName.trim();
+    if (!targetCollection) {
+      setCollectionError('Enter a collection name before saving a paper.');
+      return;
+    }
+
+    const savedKey = `${targetCollection.toLowerCase()}::${paper.id}`;
     try {
-      const targetCollection = collectionName.trim() || collections[0]?.name || 'My Research';
       const result = await addToCollectionAction(paper.id, targetCollection, '', 3);
       window.dispatchEvent(new CustomEvent('paperpilot:collections-changed'));
       window.dispatchEvent(new CustomEvent('paperpilot:active-collection-changed', {
         detail: { collectionId: result.collectionId, collectionName: targetCollection },
       }));
-      setAddedIds((prev) => ({ ...prev, [paper.id]: true }));
+      setAddedIds((prev) => ({ ...prev, [savedKey]: true }));
     } catch (err) {
       console.error('Failed to add paper', err);
       window.alert(err instanceof Error ? err.message : 'Failed to add paper to collection.');
@@ -103,10 +117,16 @@ export function ResearchPanel() {
               aria-label="Collection name"
               placeholder="Collection name"
               value={collectionName}
-              onChange={(e) => setCollectionName(e.target.value)}
+              onChange={(e) => {
+                setCollectionName(e.target.value);
+                setCollectionError(null);
+              }}
               className="bg-neutral-950 border-neutral-800 text-[11px] h-7"
             />
           </label>
+          {collectionError ? <p className="text-[10px] text-rose-400">{collectionError}</p> : !collectionName.trim() && (
+            <p className="text-[10px] text-neutral-500">Enter a collection name to enable saving.</p>
+          )}
 
           <ScrollArea className="flex-1 overflow-y-auto max-h-[70vh] rounded border border-neutral-800 bg-neutral-900/50 p-2">
             {loading && <div className="text-center p-4 text-xs text-neutral-400">Searching arXiv...</div>}
@@ -128,9 +148,9 @@ export function ResearchPanel() {
                       variant="secondary"
                       className="h-6 text-[10px] px-2"
                       onClick={() => handleAdd(paper)}
-                      disabled={addedIds[paper.id]}
+                      disabled={addedIds[`${collectionName.trim().toLowerCase()}::${paper.id}`] || !collectionName.trim()}
                     >
-                      {addedIds[paper.id] ? (
+                      {addedIds[`${collectionName.trim().toLowerCase()}::${paper.id}`] ? (
                         <><Check className="w-3 h-3 mr-1 text-emerald-400" /> Saved</>
                       ) : (
                         <><Plus className="w-3 h-3 mr-1" /> Add to Collection</>
