@@ -101,14 +101,14 @@ export function EditorPanel() {
   return (
     <div className="flex flex-col h-full space-y-3 overflow-hidden">
       <Card className="bg-card/85 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs shrink-0 overflow-hidden">
-        <CardHeader className="p-3.5 pb-2.5 flex flex-row items-center justify-between space-y-0 border-b border-border/60">
-          <CardTitle className="font-editorial text-sm font-bold text-foreground flex items-center gap-2">
-            <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span className="truncate max-w-[280px]">
+        <CardHeader className="p-3.5 pb-2.5 flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 border-b border-border/60">
+          <CardTitle className="font-editorial text-sm font-bold text-foreground flex items-center gap-2 min-w-0">
+            <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="truncate max-w-[170px] sm:max-w-[280px]">
               {activeOutline?.title || `${activeCollection?.name || 'Paper'} workspace`}
             </span>
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <ExportDialog outline={activeOutline} disabled={!activeOutline} />
             {activeOutline ? (
               <Button

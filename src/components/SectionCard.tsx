@@ -96,7 +96,7 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
 
   return (
     <Card className="bg-card/90 backdrop-blur-md border border-border/80 rounded-2xl shadow-sm flex flex-col space-y-3.5 p-4">
-      <CardHeader className="p-0 pb-2.5 flex flex-row items-center justify-between space-y-0 border-b border-border/60">
+      <CardHeader className="p-0 pb-2.5 flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 border-b border-border/60">
         <div>
           <CardTitle className="font-editorial text-base font-bold text-foreground">
             {section.title}
@@ -256,7 +256,7 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
             )}
           </div>
           {verifyMsg && (
-            <span className="text-[11px] font-medium text-foreground/80 bg-accent/40 px-2.5 py-1 rounded-lg border border-border/60 max-w-sm truncate">
+            <span className="text-[11px] font-medium text-foreground/80 bg-accent/40 px-2.5 py-1 rounded-lg border border-border/60 max-w-full sm:max-w-md truncate">
               {verifyMsg}
             </span>
           )}
