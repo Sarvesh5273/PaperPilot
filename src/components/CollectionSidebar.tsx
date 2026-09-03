@@ -304,22 +304,22 @@ export function CollectionSidebar() {
       </ScrollArea>
 
       <Dialog open={compareDialogOpen} onOpenChange={setCompareDialogOpen}>
-        <DialogContent className="max-w-3xl bg-card border-border/80 text-foreground rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="font-editorial text-base font-bold flex items-center gap-2 text-foreground">
-              <BarChart2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              Comparative Analysis ({comparedTitles.length} papers)
+        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[88vh] flex flex-col bg-card border-border/80 text-foreground rounded-2xl shadow-xl overflow-hidden p-4 sm:p-5">
+          <DialogHeader className="shrink-0 pb-2 border-b border-border/60">
+            <DialogTitle className="font-editorial text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+              <BarChart2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Comparative Analysis ({comparedTitles.length} papers)</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="overflow-x-auto rounded-xl border border-border/70 my-2">
-            <table className="w-full min-w-[560px] text-xs">
-              <thead>
-                <tr className="bg-muted/60 text-muted-foreground border-b border-border/70">
-                  <th className="py-2.5 px-3 font-semibold whitespace-nowrap text-left w-28 uppercase text-[10px] tracking-wider">
+          <div className="flex-1 overflow-auto rounded-xl border border-border/70 my-2 min-h-0">
+            <table className="w-full min-w-[500px] text-xs">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-muted/95 backdrop-blur-xs text-muted-foreground border-b border-border/70">
+                  <th className="py-2.5 px-3 font-semibold whitespace-nowrap text-left w-24 sm:w-28 uppercase text-[10px] tracking-wider bg-muted">
                     Dimension
                   </th>
                   {comparedTitles.map((title, i) => (
-                    <th key={i} className="py-2.5 px-3 font-semibold text-left text-foreground">
+                    <th key={i} className="py-2.5 px-3 font-semibold text-left text-foreground bg-muted min-w-[150px] sm:min-w-[190px]">
                       <span className="text-amber-600 dark:text-amber-400 font-mono mr-1">[{i + 1}]</span>
                       <span className="font-editorial line-clamp-2">{title}</span>
                     </th>
@@ -329,7 +329,7 @@ export function CollectionSidebar() {
               <tbody className="divide-y divide-border/50">
                 {COMPARE_DIMENSIONS.map((dim, idx) => (
                   <tr key={dim} className={idx % 2 === 0 ? 'bg-background/40' : 'bg-muted/20'}>
-                    <td className="py-3 px-3 font-semibold text-muted-foreground capitalize text-[11px] align-top">
+                    <td className="py-3 px-3 font-semibold text-muted-foreground capitalize text-[11px] align-top whitespace-nowrap">
                       {dim}
                     </td>
                     {selectedPapers.map(p => (
@@ -342,17 +342,17 @@ export function CollectionSidebar() {
               </tbody>
             </table>
           </div>
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground/90 flex items-start gap-2">
+          <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 sm:p-3 text-xs text-foreground/90 flex items-start gap-2">
             <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div>
+            <div className="min-w-0 flex-1">
               <span className="font-semibold text-amber-800 dark:text-amber-300">Agent Co-Pilot Tip: </span>
               Ask ChatGPT in the browser:
-              <code className="block mt-1 font-mono text-[10px] bg-background/80 px-2 py-1 rounded border border-border/60">
+              <code className="block mt-1 font-mono text-[10px] bg-background/80 px-2 py-1 rounded border border-border/60 truncate sm:whitespace-normal">
                 &ldquo;Use compare_papers on the {comparedTitles.length} selected papers and summarize key trade-offs in prose.&rdquo;
               </code>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 pt-2 border-t border-border/60">
             <Button
               size="sm"
               onClick={() => setCompareDialogOpen(false)}
