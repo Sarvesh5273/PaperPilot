@@ -112,8 +112,6 @@ export async function draftSectionAction(
       const normalized = value?.trim();
       return normalized && normalized !== 'Not explicitly stated' ? normalized.replace(/\s+/g, ' ') : fallback;
     };
-    const authorName = (paper: CollectionPaper) => paper.authors[0]?.trim().split(/\s+/).pop() || 'The authors';
-    const year = (paper: CollectionPaper) => paper.published.split('-')[0] || 'n.d.';
     const evidence = (paper: CollectionPaper) => usable(
       paper.extractedFindings?.keyClaims.find(claim => claim !== 'Not explicitly stated'),
       usable(
@@ -125,9 +123,14 @@ export async function draftSectionAction(
     if (papers.length === 0) {
       draft = `This section introduces ${section.title.toLowerCase()} and establishes the concepts that guide the discussion. Add papers to the collection to ground this overview in specific evidence.`;
     } else {
-      const sourceSentences = papers.map(p =>
-        `${authorName(p)} (${year(p)}) reports that ${evidence(p)} ({{${p.id}}}).`
-      );
+    const sourceOpeners = [
+      'Evidence from the selected literature indicates that',
+      'A complementary study finds that',
+      'Taken from a different research angle, the evidence suggests that',
+    ];
+    const sourceSentences = papers.map((paper, index) =>
+      `${sourceOpeners[index % sourceOpeners.length]} ${evidence(paper)} ({{${paper.id}}}).`
+    );
       const opening = `This section considers ${section.title.toLowerCase()} through ${papers.length} selected source${papers.length === 1 ? '' : 's'}.`;
       if (tone === 'critical') {
         const limitation = usable(papers[0].extractedFindings?.limitations?.[0], 'its scope remains bounded by the available evidence');
@@ -213,7 +216,10 @@ export async function insertCitationAction(
   const inText = formatInTextCitation(paper.authors, paper.published.split('-')[0]);
   const formatted = formatAPACitation(paper);
 
-  if (placeholder && section.humanEdit.includes(placeholder)) {
+  const wrappedPlaceholder = placeholder ? `(${placeholder})` : undefined;
+  if (wrappedPlaceholder && section.humanEdit.includes(wrappedPlaceholder)) {
+    section.humanEdit = section.humanEdit.replaceAll(wrappedPlaceholder, inText);
+  } else if (placeholder && section.humanEdit.includes(placeholder)) {
     section.humanEdit = section.humanEdit.replaceAll(placeholder, inText);
   } else {
     section.humanEdit = section.humanEdit ? `${section.humanEdit} ${inText}` : inText;

@@ -55,8 +55,11 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
       const number = paperNumber(paper.id);
       const placeholder = `{{${paper.id}}}`;
       const authorYear = formatInTextCitation(paper.authors, paper.published.split('-')[0]);
-      formatted = formatted.split(placeholder).join(formatIEEEInTextCitation(number));
-      formatted = formatted.split(authorYear).join(formatIEEEInTextCitation(number));
+      const ieee = formatIEEEInTextCitation(number);
+      formatted = formatted.split(`(${placeholder})`).join(ieee);
+      formatted = formatted.split(placeholder).join(ieee);
+      formatted = formatted.split(`(${authorYear})`).join(ieee);
+      formatted = formatted.split(authorYear).join(ieee);
     }
     return formatted;
   };

@@ -84,10 +84,12 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
   };
 
   const allPapers = loadCollections().flatMap(c => c.papers);
-  const previewText = (section.humanEdit || section.agentDraft || '').replace(/\{\{([^}]+)\}\}/g, (m, id) => {
+  const normalizeCitationPunctuation = (text: string) => text.replace(/\(\(([^()]+,\s*\d{4})\)\)/g, '($1)');
+  const editableText = normalizeCitationPunctuation(section.humanEdit);
+  const previewText = normalizeCitationPunctuation((section.humanEdit || section.agentDraft || '').replace(/\{\{([^}]+)\}\}/g, (m, id) => {
     const p = allPapers.find(paper => paper.id === id);
     return p ? formatInTextCitation(p.authors, p.published.split('-')[0]) : m;
-  });
+  }));
 
   return (
     <Card className="bg-neutral-900 border-neutral-800 flex flex-col space-y-3 p-4">
@@ -135,12 +137,12 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
           </TabsContent>
           <TabsContent value="edit" className="m-0 pt-2 flex flex-col space-y-1">
             <Textarea
-              value={section.humanEdit}
+              value={editableText}
               onChange={(e) => updateText(e.target.value)}
               placeholder="Write, revise, and shape this section here..."
               className="min-h-[260px] max-h-[420px] bg-neutral-950 border-neutral-800 text-sm leading-relaxed text-neutral-200 resize-y"
             />
-            <div className="text-[10px] text-neutral-500 text-right">{section.humanEdit.length} chars | {section.humanEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
+            <div className="text-[10px] text-neutral-500 text-right">{editableText.length} chars | {editableText.trim().split(/\s+/).filter(Boolean).length} words</div>
           </TabsContent>
           <TabsContent value="preview" className="m-0 pt-2 text-xs leading-relaxed text-neutral-200 min-h-[160px] max-h-[220px] overflow-y-auto whitespace-pre-wrap">
             {previewText || <span className="text-neutral-500 italic">Your edited section will appear here as a clean reading view.</span>}

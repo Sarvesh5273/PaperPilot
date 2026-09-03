@@ -250,7 +250,7 @@ export function useWebMCPTools() {
 
   useWebMCP({
     name: 'insert_citation',
-    description: 'Resolve {{paperId}} placeholders to formatted APA in-text citations and update the bibliography.',
+    description: 'Resolve {{paperId}} placeholders to linked in-text citations and update the bibliography. The student chooses APA or IEEE when exporting.',
     inputSchema: {
       type: 'object',
       properties: {
