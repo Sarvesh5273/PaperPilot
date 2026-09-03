@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,19 @@ export function ResearchPanel() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Paper[]>([]);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const handleAgentSearch = (event: Event) => {
+      const detail = (event as CustomEvent<{ papers?: Paper[]; query?: string }>).detail;
+      if (!detail?.papers) return;
+      setResults(detail.papers);
+      if (detail.query) setQuery(detail.query);
+      setLoading(false);
+    };
+
+    window.addEventListener('paperpilot:search-results-changed', handleAgentSearch);
+    return () => window.removeEventListener('paperpilot:search-results-changed', handleAgentSearch);
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

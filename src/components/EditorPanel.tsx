@@ -9,13 +9,15 @@ import { useCollections } from '@/hooks/useCollections';
 import { generateOutlineAction } from '@/actions/writing';
 import { SectionCard } from './SectionCard';
 import { ExportDialog } from './ExportDialog';
-import { FileText, PlusCircle, CheckCircle, Clock } from 'lucide-react';
+import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2 } from 'lucide-react';
 
 export function EditorPanel() {
   const outlines = useOutlines();
   const collections = useCollections();
   const activeOutline = outlines[0];
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const activeSection =
     activeOutline?.sections.find((s) => s.id === selectedSectionId) ||
@@ -23,7 +25,16 @@ export function EditorPanel() {
 
   const handleGenerateOutline = async (type: 'literature_review' | 'research_article' | 'thesis_chapter' = 'literature_review') => {
     const colId = collections[0]?.id || 'preseed-webmcp';
-    await generateOutlineAction(colId, type);
+    setGenerating(true);
+    setGenerationError(null);
+    try {
+      const outline = await generateOutlineAction(colId, type);
+      setSelectedSectionId(outline.sections[0]?.id || null);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : 'Could not generate the outline.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -48,19 +59,37 @@ export function EditorPanel() {
           <div className="flex items-center gap-1.5">
             <ExportDialog outline={activeOutline} disabled={!activeOutline} />
             {!activeOutline && (
-              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
-                <PlusCircle className="w-3.5 h-3.5 mr-1" /> Generate Outline
+              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} disabled={generating} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
+                {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 mr-1" />}
+                {generating ? 'Building...' : 'Generate Outline'}
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent className="p-2 pt-0">
           {!activeOutline ? (
-            <p className="text-xs text-neutral-500 py-3 text-center">
-              No outline generated. Click &ldquo;Generate Outline&rdquo; to build sections from your collection.
-            </p>
+            <div className="py-4 px-3 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Library className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-neutral-200">Turn your collection into a working draft</p>
+                  <p className="text-[11px] text-neutral-500 mt-1">PaperPilot will create sections from your saved papers, then you can draft and review each one.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-[10px] text-neutral-500">
+                <div><span className="text-blue-400 font-mono">1</span> Save papers</div>
+                <div><span className="text-blue-400 font-mono">2</span> Build outline</div>
+                <div><span className="text-blue-400 font-mono">3</span> Draft sections</div>
+              </div>
+              {generationError && <p className="text-[11px] text-rose-400">{generationError}</p>}
+            </div>
           ) : (
-            <ul className="flex flex-wrap gap-1.5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                <span>{collections.find(c => c.id === activeOutline.collectionId)?.name || 'Current collection'}</span>
+                <span>{activeOutline.sections.filter(s => s.status === 'approved').length}/{activeOutline.sections.length} sections approved</span>
+              </div>
+              <ul className="flex flex-wrap gap-1.5">
               {activeOutline.sections.map((sec, idx) => {
                 const isSelected = sec.id === activeSection?.id;
                 return (
@@ -79,7 +108,8 @@ export function EditorPanel() {
                   </li>
                 );
               })}
-            </ul>
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -89,7 +119,10 @@ export function EditorPanel() {
           <SectionCard outline={activeOutline} section={activeSection} nextSectionId={nextSectionId} />
         ) : (
           <Card className="bg-neutral-900 border-neutral-800 p-8 text-center text-xs text-neutral-500">
-            Generate an outline to begin collaborative drafting.
+            <div className="flex flex-col items-center gap-2">
+              <ArrowRight className="w-4 h-4 text-blue-400" />
+              <span>Generate an outline above to begin collaborative drafting.</span>
+            </div>
           </Card>
         )}
       </div>

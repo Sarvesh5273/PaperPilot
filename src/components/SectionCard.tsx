@@ -12,7 +12,7 @@ import { saveOutlines, loadOutlines, loadCollections } from '@/lib/storage';
 import { formatInTextCitation, formatAPACitation } from '@/lib/citations';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CitationPicker } from './CitationPicker';
-import { Sparkles, Check, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Sparkles, Check, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
 
 interface SectionCardProps {
   outline: PaperOutline;
@@ -23,6 +23,8 @@ interface SectionCardProps {
 export function SectionCard({ outline, section, nextSectionId }: SectionCardProps) {
   const [tab, setTab] = useState<'draft' | 'edit' | 'preview'>('edit');
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   const updateText = (text: string) => {
     const outlines = loadOutlines();
@@ -51,6 +53,19 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
     if (!paperId) return setVerifyMsg('⚠️ No paper cited yet to verify against.');
     const res = await verifyClaimAction(outline.id, section.id, section.humanEdit.slice(0, 200), paperId);
     setVerifyMsg(`${res.verified ? '✅' : '⚠️'} [${res.confidence.toUpperCase()}] ${res.evidence}`);
+  };
+
+  const handleDraft = async () => {
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      await draftSectionAction(outline.id, section.id, 'academic');
+      setTab('draft');
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : 'Could not draft this section.');
+    } finally {
+      setDrafting(false);
+    }
   };
 
   const handleTransition = async () => {
@@ -87,8 +102,9 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => draftSectionAction(outline.id, section.id, 'academic')} className="h-7 text-xs border-neutral-700">
-            <Sparkles className="w-3 h-3 mr-1 text-amber-400" /> Draft
+          <Button size="sm" variant="outline" onClick={handleDraft} disabled={drafting} className="h-7 text-xs border-neutral-700">
+            {drafting ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1 text-amber-400" />}
+            {drafting ? 'Drafting...' : 'Draft'}
           </Button>
           <CitationPicker onSelect={handleInsertCitation} />
           <Button size="sm" variant={section.status === 'approved' ? 'default' : 'secondary'} onClick={handleApprove} className="h-7 text-xs">
@@ -105,7 +121,7 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
             <TabsTrigger value="preview" className="text-xs">Final Preview</TabsTrigger>
           </TabsList>
           <TabsContent value="draft" className="m-0 pt-2 text-xs leading-relaxed text-neutral-300 min-h-[160px] max-h-[220px] overflow-y-auto">
-            {!section.agentDraft ? <p className="text-neutral-500 italic">No agent draft generated yet.</p> :
+            {!section.agentDraft ? <div className="text-neutral-500 italic space-y-1"><p>No agent draft generated yet.</p><p className="not-italic text-[10px]">Click Draft to synthesize this section from the collection.</p></div> :
               section.agentDraft.split(/(\{\{[^}]+\}\})/).map((chunk, i) => chunk.startsWith('{{') ?
                 <span key={i} className="bg-amber-500/20 text-amber-300 font-mono px-1 py-0.5 rounded">{chunk}</span> :
                 <span key={i}>{chunk}</span>
@@ -124,6 +140,8 @@ export function SectionCard({ outline, section, nextSectionId }: SectionCardProp
             {previewText || <span className="text-neutral-500 italic">No content available for preview.</span>}
           </TabsContent>
         </Tabs>
+
+        {draftError && <p className="text-[10px] text-rose-400">{draftError}</p>}
 
         <div className="flex items-center justify-between pt-2 border-t border-neutral-800 text-[11px]">
           <div className="flex items-center gap-2">

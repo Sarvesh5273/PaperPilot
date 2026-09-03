@@ -45,6 +45,7 @@ export function useWebMCPTools() {
       const start = Date.now();
       try {
         const result = await searchPapersAction(input);
+        window.dispatchEvent(new CustomEvent('paperpilot:search-results-changed', { detail: result }));
         logToolCall('search_papers', input, result, Date.now() - start);
         return result;
       } catch (err) {

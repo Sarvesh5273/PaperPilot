@@ -11,6 +11,17 @@ import { useAgentLog } from '@/hooks/useAgentLog';
 export function AgentLog() {
   const { logs, clearLogs } = useAgentLog();
 
+  const getOutputSummary = (log: (typeof logs)[number]) => {
+    if (log.error) return log.error;
+    const output = log.output as { papers?: unknown[]; resultCount?: number; draft?: string; formattedCitation?: string } | undefined;
+    if (log.toolName === 'search_papers' && output?.papers) {
+      return `${output.resultCount ?? output.papers.length} papers returned`;
+    }
+    if (log.toolName === 'draft_section' && output?.draft) return 'Draft generated';
+    if (log.toolName === 'insert_citation' && output?.formattedCitation) return 'Citation inserted';
+    return 'Completed';
+  };
+
   return (
     <div className="flex flex-col h-full space-y-4">
       <Card className="bg-neutral-900 border-neutral-800">
@@ -51,16 +62,13 @@ export function AgentLog() {
                   <span className="text-neutral-500">in: </span>
                   {JSON.stringify(log.input)}
                 </div>
-                {log.error ? (
-                  <div className="text-[10px] text-rose-400 bg-rose-950/30 p-1.5 rounded">
-                    {log.error}
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-neutral-400 bg-neutral-900/80 p-1.5 rounded overflow-x-auto">
-                    <span className="text-neutral-500">out: </span>
-                    {JSON.stringify(log.output)}
-                  </div>
-                )}
+                <div className={`text-[10px] p-1.5 rounded ${log.error ? 'text-rose-400 bg-rose-950/30' : 'text-emerald-300 bg-emerald-950/20'}`}>
+                  {getOutputSummary(log)}
+                </div>
+                <details className="text-[10px] text-neutral-500">
+                  <summary className="cursor-pointer hover:text-neutral-300">View details</summary>
+                  <pre className="mt-1 text-[9px] text-neutral-400 bg-neutral-900/80 p-1.5 rounded overflow-x-auto whitespace-pre-wrap break-words">{JSON.stringify(log.output ?? { error: log.error }, null, 2)}</pre>
+                </details>
               </div>
             ))}
           </div>
