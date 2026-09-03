@@ -32,8 +32,8 @@ const HALF = (pt: number) => pt * 2; // docx font sizes are in half-points
 
 /** Resolve {{paperId}} placeholders and author-year citations to the target style. */
 export function resolveSectionText(text: string, citedPapers: Paper[], citationFormat: CitationFormat): string {
+  let out = text;
   if (citationFormat === 'ieee') {
-    let out = text;
     citedPapers.forEach((paper, i) => {
       const n = formatIEEEInTextCitation(i + 1);
       const placeholder = `{{${paper.id}}}`;
@@ -43,12 +43,33 @@ export function resolveSectionText(text: string, citedPapers: Paper[], citationF
       out = out.split(`(${authorYear})`).join(n);
       out = out.split(authorYear).join(n);
     });
+    // Replace any remaining {{id}} with numbered citation
+    out = out.replace(/\{\{([^}]+)\}\}/g, (_match, id: string) => {
+      const idx = citedPapers.findIndex(p => p.id === id || p.title.toLowerCase().includes(id.toLowerCase()));
+      return idx >= 0 ? formatIEEEInTextCitation(idx + 1) : '[1]';
+    });
+    // Clean up nested or double brackets like (([1])) or ([1]) -> [1]
+    out = out.replace(/\(\[([0-9,\s]+)\]\)/g, '[$1]');
+    out = out.replace(/\(\(\[([0-9,\s]+)\]\)\)/g, '[$1]');
+    out = out.replace(/\(\(([^\(\)]+)\)\)/g, '($1)');
     return out;
   }
-  return text.replace(/\{\{([^}]+)\}\}/g, (match, id: string) => {
-    const paper = citedPapers.find(p => p.id === id);
-    return paper ? formatInTextCitation(paper.authors, paper.published.split('-')[0]) : match;
+
+  // APA format:
+  citedPapers.forEach((paper) => {
+    const placeholder = `{{${paper.id}}}`;
+    const authorYear = formatInTextCitation(paper.authors, paper.published.split('-')[0]);
+    out = out.split(`(${placeholder})`).join(authorYear);
+    out = out.split(placeholder).join(authorYear);
   });
+  out = out.replace(/\{\{([^}]+)\}\}/g, (_match, id: string) => {
+    const paper = citedPapers.find(p => p.id === id || p.title.toLowerCase().includes(id.toLowerCase()));
+    return paper ? formatInTextCitation(paper.authors, paper.published.split('-')[0]) : '';
+  });
+  // Clean up double parentheses and repetitive "et al."
+  out = out.replace(/\(\(([^\(\)]+)\)\)/g, '($1)');
+  out = out.replace(/et al\.,?\s+et al\./gi, 'et al.');
+  return out;
 }
 
 function textParagraphs(text: string, opts: {
@@ -139,7 +160,8 @@ function buildIEEE({ outline, sections, citedPapers }: DocxExportInput): Documen
       {
         properties: {
           page: { margin: { top: margin, bottom: margin, left: margin, right: margin } },
-          column: { count: 2, space: convertInchesToTwip(0.25) }, // ← real two-column layout
+          type: SectionType.CONTINUOUS,
+          column: { count: 2, space: convertInchesToTwip(0.25) },
         },
         footers: { default: pageNumberFooter() },
         children: body,

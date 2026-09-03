@@ -32,10 +32,23 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
   const citedPapers = useMemo(() => {
     if (!outline) return [] as Paper[];
     const seen = new Set<string>();
-    return outline.sections.flatMap(s => s.citations)
+
+    const explicitCited = outline.sections.flatMap(s => s.citations)
       .map(c => allPapers.find(p => p.id === c.paperId))
-      .filter((p): p is Paper => Boolean(p))
-      .filter(p => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+      .filter((p): p is Paper => Boolean(p));
+
+    const textPlaceholders = outline.sections.flatMap(s => {
+      const text = `${s.humanEdit || ''} ${s.agentDraft || ''}`;
+      const matches = text.match(/\{\{([^}]+)\}\}/g) || [];
+      return matches.map(m => m.replace(/[{}]/g, '').trim());
+    });
+    const fromText = textPlaceholders
+      .map(id => allPapers.find(p => p.id === id || p.title.toLowerCase().includes(id.toLowerCase())))
+      .filter((p): p is Paper => Boolean(p));
+
+    const combined = [...explicitCited, ...fromText];
+    const pool = combined.length > 0 ? combined : allPapers;
+    return pool.filter(p => (seen.has(p.id) ? false : (seen.add(p.id), true)));
   }, [allPapers, outline]);
 
   const body = sectionsToExport
