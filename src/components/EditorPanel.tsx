@@ -11,6 +11,14 @@ import { SectionCard } from './SectionCard';
 import { ExportDialog } from './ExportDialog';
 import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2, Check } from 'lucide-react';
 
+type PaperType = 'literature_review' | 'research_article' | 'thesis_chapter';
+
+const PAPER_TYPE_LABELS: Record<PaperType, string> = {
+  literature_review: 'Literature review',
+  research_article: 'Research article',
+  thesis_chapter: 'Thesis chapter',
+};
+
 export function EditorPanel() {
   const outlines = useOutlines();
   const collections = useCollections();
@@ -18,6 +26,7 @@ export function EditorPanel() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [paperType, setPaperType] = useState<PaperType>('literature_review');
 
   useEffect(() => {
     if (!activeCollectionId || !collections.some((collection) => collection.id === activeCollectionId)) {
@@ -46,18 +55,17 @@ export function EditorPanel() {
     activeOutline?.sections[0];
   const hasSourcePapers = Boolean(activeCollection?.papers.length);
 
-  // Guided-pipeline state: how far along is this collection?
   const paperCount = activeCollection?.papers.length || 0;
   const analyzedCount = activeCollection?.papers.filter(p => p.extractedFindings).length || 0;
   const currentStep = paperCount === 0 ? 1 : analyzedCount < paperCount ? 2 : 3;
 
-  const handleGenerateOutline = async (type: 'literature_review' | 'research_article' | 'thesis_chapter' = 'literature_review') => {
+  const handleGenerateOutline = async () => {
     const colId = activeCollection?.id;
     if (!colId) return;
     setGenerating(true);
     setGenerationError(null);
     try {
-      const outline = await generateOutlineAction(colId, type);
+      const outline = await generateOutlineAction(colId, paperType);
       setSelectedSectionId(outline.sections[0]?.id || null);
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : 'Could not generate the outline.');
@@ -88,10 +96,22 @@ export function EditorPanel() {
           <div className="flex items-center gap-1.5">
             <ExportDialog outline={activeOutline} disabled={!activeOutline} />
             {!activeOutline && (
-              <Button size="sm" onClick={() => handleGenerateOutline('literature_review')} disabled={generating || !hasSourcePapers} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
-                {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 mr-1" />}
-                {generating ? 'Building...' : hasSourcePapers ? 'Generate Outline' : 'Add papers first'}
-              </Button>
+              <>
+                <select
+                  aria-label="Paper type"
+                  value={paperType}
+                  onChange={(e) => setPaperType(e.target.value as PaperType)}
+                  className="h-7 rounded border border-neutral-700 bg-neutral-950 px-1.5 text-[11px] text-neutral-300"
+                >
+                  {(Object.keys(PAPER_TYPE_LABELS) as PaperType[]).map(t => (
+                    <option key={t} value={t}>{PAPER_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+                <Button size="sm" onClick={handleGenerateOutline} disabled={generating || !hasSourcePapers} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
+                  {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 mr-1" />}
+                  {generating ? 'Building...' : hasSourcePapers ? 'Generate Outline' : 'Add papers first'}
+                </Button>
+              </>
             )}
           </div>
         </CardHeader>
@@ -129,14 +149,14 @@ export function EditorPanel() {
                   <StepBadge n={3} done={false} current={currentStep === 3} />
                   <div>
                     <p className="text-[11px] text-neutral-200">Build your outline</p>
-                    <p className="text-[10px] text-neutral-500">Click “Generate Outline” above — sections are created from your collection</p>
+                    <p className="text-[10px] text-neutral-500">Pick a paper type above and click “Generate Outline” — sections are created from your collection</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <StepBadge n={4} done={false} current={false} />
                   <div>
                     <p className="text-[11px] text-neutral-500">Draft, verify, approve, export</p>
-                    <p className="text-[10px] text-neutral-500">Each section gets an agent draft — you edit, approve, and export APA or IEEE</p>
+                    <p className="text-[10px] text-neutral-500">Each section gets an agent draft grounded in the full text — you edit, approve, and export APA or IEEE</p>
                   </div>
                 </li>
               </ol>

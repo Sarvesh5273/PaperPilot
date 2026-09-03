@@ -35,3 +35,17 @@ export function formatInTextCitation(authors: string[], year: string): string {
   if (authors.length === 2) return `(${authors[0].trim().split(' ').pop()} & ${authors[1].trim().split(' ').pop()}, ${year})`;
   return `(${authors[0].trim().split(' ').pop()} et al., ${year})`;
 }
+
+/** BibTeX entry usable in Overleaf, Zotero, Mendeley, LaTeX workflows. */
+export function formatBibtexCitation(paper: { title: string; authors: string[]; published: string; id: string }): string {
+  const year = paper.published.split('-')[0] || new Date().getFullYear().toString();
+  const firstAuthorLast = (paper.authors[0] || 'unknown').trim().split(/\s+/).pop() || 'unknown';
+  const key = `${firstAuthorLast.toLowerCase().replace(/[^a-z]/g, '')}${year}`;
+  const authors = paper.authors.map(a => {
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return a.trim();
+    const last = parts.pop();
+    return `${last}, ${parts.join(' ')}`;
+  }).join(' and ');
+  return `@article{${key},\n  title   = {${paper.title}},\n  author  = {${authors}},\n  year    = {${year}},\n  journal = {arXiv preprint arXiv:${paper.id}},\n  url     = {https://arxiv.org/abs/${paper.id}}\n}`;
+}

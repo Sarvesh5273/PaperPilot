@@ -3,11 +3,37 @@ import { loadCollections, loadOutlines, saveOutlines } from '@/lib/storage';
 import { formatAPACitation, formatInTextCitation } from '@/lib/citations';
 import { generateDraftWithGemini } from '@/lib/gemini';
 
+const NOT_STATED = 'Not explicitly stated';
+
 const OUTLINE_TEMPLATES: Record<'literature_review' | 'research_article' | 'thesis_chapter', string[]> = {
   literature_review: ['Introduction', 'Related Work', 'Thematic Analysis', 'Critical Discussion', 'Conclusion'],
-  research_article: ['Introduction', 'Background', 'Methodology', 'Results', 'Discussion', 'Conclusion'],
-  thesis_chapter: ['Introduction', 'Literature Review', 'Theoretical Framework', 'Methodology', 'Findings', 'Discussion'],
+  research_article: ['Abstract', 'Introduction', 'Background', 'Methodology', 'Results', 'Discussion', 'Conclusion'],
+  thesis_chapter: ['Abstract', 'Introduction', 'Literature Review', 'Theoretical Framework', 'Methodology', 'Findings', 'Discussion'],
 };
+
+function sectionGuidanceFor(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes('abstract')) return 'Write a single 150–200 word paragraph: purpose of the paper, approach, principal findings, and significance. No citations.';
+  if (t.includes('intro')) return 'Introduce the topic, motivate the problem, and preview the paper structure. 200–300 words.';
+  if (t.includes('method')) return 'Describe and, where sources differ, compare the methodologies, systems, or frameworks used. 200–300 words.';
+  if (t.includes('result') || t.includes('finding')) return 'Present the principal quantitative and qualitative findings, preserving specific numbers and metrics from the sources. 200–300 words.';
+  if (t.includes('background') || t.includes('related') || t.includes('literature')) return 'Situate the sources within the existing research landscape, grouping by theme or approach. 200–300 words.';
+  if (t.includes('discussion') || t.includes('critical') || t.includes('thematic')) return 'Interpret and critically synthesize across sources: agreements, tensions, and implications. 200–300 words.';
+  if (t.includes('framework') || t.includes('theoretical')) return 'Explain the conceptual or theoretical frameworks the sources rely on and how they relate. 200–300 words.';
+  if (t.includes('conclusion') || t.includes('summary')) return 'Summarize the key takeaways and suggest concrete future research directions. 150–250 words.';
+  return 'Write a coherent academic overview grounded in the sources. 200–300 words.';
+}
+
+function sectionCategory(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes('abstract')) return 'abstract';
+  if (t.includes('method')) return 'methods';
+  if (t.includes('result') || t.includes('finding')) return 'results';
+  if (t.includes('conclusion') || t.includes('summary')) return 'conclusion';
+  if (t.includes('discussion') || t.includes('critical')) return 'discussion';
+  if (t.includes('background') || t.includes('related') || t.includes('literature') || t.includes('framework') || t.includes('thematic')) return 'background';
+  return 'intro';
+}
 
 export async function generateOutlineAction(
   collectionIdOrName: string,
@@ -38,7 +64,7 @@ export async function generateOutlineAction(
 
   const outline: PaperOutline = {
     id: `outline-${Date.now()}`,
-    title: `${collection.name} — ${paperType.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}`,
+    title: `${collection.name} — ${paperType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`,
     sections,
     collectionId: collection.id,
     createdAt: new Date().toISOString(),
@@ -61,14 +87,12 @@ export async function draftSectionAction(
   let outline: PaperOutline | undefined;
   let section: PaperSection | undefined;
 
-  // Check if arg1 is outlineId and arg2 is sectionId
   const outlineById = outlines.find(o => o.id === arg1);
   if (outlineById) {
     outline = outlineById;
     section = outline.sections.find(s => s.id === arg2);
   }
 
-  // If not found, check if arg1 is sectionId directly across outlines
   if (!section) {
     for (const o of outlines) {
       const foundSec = o.sections.find(s => s.id === arg1);
@@ -89,56 +113,71 @@ export async function draftSectionAction(
 
   const collections = loadCollections();
   const collection = collections.find(c => c.id === outline?.collectionId || c.name.toLowerCase() === arg2.toLowerCase()) || collections[0];
-  const papers: CollectionPaper[] = collection?.papers.slice(0, 3) || [];
+  const papers: CollectionPaper[] = collection?.papers.slice(0, 4) || [];
+  const guidance = sectionGuidanceFor(section.title);
+  const category = sectionCategory(section.title);
 
   let draft = '';
 
   try {
-    draft = await generateDraftWithGemini(
-      section.title,
+    draft = await generateDraftWithGemini({
+      sectionTitle: section.title,
       tone,
-      papers.map(p => ({
+      sectionGuidance: guidance,
+      papers: papers.map(p => ({
+        id: p.id,
         title: p.title,
         authors: p.authors,
-        abstract: p.abstract,
         published: p.published,
-        id: p.id,
-      }))
-    );
+        abstract: p.abstract,
+        findings: p.extractedFindings,
+      })),
+    });
   } catch (err) {
-    console.warn('[Gemini failed, using template fallback]:', err);
+    console.warn('[Gemini unavailable, using template fallback]:', err);
 
     const usable = (value: string | undefined, fallback: string) => {
       const normalized = value?.trim();
-      return normalized && normalized !== 'Not explicitly stated' ? normalized.replace(/\s+/g, ' ') : fallback;
+      return normalized && normalized !== NOT_STATED ? normalized.replace(/\s+/g, ' ') : fallback;
     };
-    const evidence = (paper: CollectionPaper) => usable(
-      paper.extractedFindings?.keyClaims.find(claim => claim !== 'Not explicitly stated'),
-      usable(
-        paper.extractedFindings?.conclusionSummary,
-        usable(paper.abstract, `the paper examines ${paper.title.toLowerCase()}`)
-      )
-    );
+    const clean = (text: string) => {
+      const t = text.trim().replace(/\s+/g, ' ');
+      return t.length > 1 && t[1] && t[1] === t[1].toLowerCase() ? t[0].toLowerCase() + t.slice(1) : t;
+    };
+    const pick = (p: CollectionPaper, field: 'claim' | 'method' | 'limit' | 'conclusion') => {
+      const ef = p.extractedFindings;
+      const raw =
+        field === 'claim' ? ef?.keyClaims.find(c => c !== NOT_STATED) :
+        field === 'method' ? ef?.methodology :
+        field === 'limit' ? ef?.limitations.find(c => c !== NOT_STATED) :
+        ef?.conclusionSummary;
+      return clean(usable(raw, clean(usable(p.abstract, `the paper examines ${p.title.toLowerCase()}`))));
+    };
 
     if (papers.length === 0) {
-      draft = `This section introduces ${section.title.toLowerCase()} and establishes the concepts that guide the discussion. Add papers to the collection to ground this overview in specific evidence.`;
+      draft = `This ${section.title.toLowerCase()} section introduces the concepts that guide the paper. Add papers to the collection to ground this overview in specific evidence.`;
+    } else if (category === 'abstract') {
+      const parts = papers.map(p => pick(p, 'conclusion'));
+      draft = `This paper synthesizes ${papers.length} recent stud${papers.length === 1 ? 'y' : 'ies'} on the collection topic. ${parts.map((s, i) => `${papers[i].title.split(':')[0]} ${s}`).join(' ')} Together, these works establish the current state of the area and motivate the analysis presented in this paper.`;
+    } else if (category === 'methods') {
+      const methods = papers.map(p => `Prior work such as ${p.title.split(':')[0]} ${pick(p, 'method')}`);
+      draft = `The selected sources adopt a range of methodological approaches. ${methods.join('; ')}. Comparing these designs reveals trade-offs between rigor, scalability, and practical deployability.`;
+    } else if (category === 'results') {
+      const results = papers.map(p => pick(p, 'claim'));
+      draft = `Across the selected literature, several findings stand out. ${results.map((s, i) => `${papers[i].title.split(':')[0]} reports that ${s}`).join(' ')} These results, taken together, indicate measurable progress on the problems examined.`;
+    } else if (category === 'conclusion') {
+      const limits = papers.map(p => pick(p, 'limit')).filter(s => !s.startsWith('the paper examines'));
+      draft = `In summary, the reviewed literature demonstrates substantive advances while leaving open questions for future work. ${limits.length > 0 ? `Notably, ${limits[0]}` : 'Further replication and broader evaluation remain important next steps'}. Addressing these gaps will strengthen the evidence base for subsequent research.`;
     } else {
-    const sourceOpeners = [
-      'Evidence from the selected literature indicates that',
-      'A complementary study finds that',
-      'Taken from a different research angle, the evidence suggests that',
-    ];
-    const sourceSentences = papers.map((paper, index) =>
-      `${sourceOpeners[index % sourceOpeners.length]} ${evidence(paper)} ({{${paper.id}}}).`
-    );
-      const opening = `This section considers ${section.title.toLowerCase()} through ${papers.length} selected source${papers.length === 1 ? '' : 's'}.`;
+      const evidence = papers.map(p => pick(p, 'claim'));
+      const opening = `This section examines ${section.title.toLowerCase()} in light of ${papers.length} selected source${papers.length === 1 ? '' : 's'}.`;
       if (tone === 'critical') {
-        const limitation = usable(papers[0].extractedFindings?.limitations?.[0], 'its scope remains bounded by the available evidence');
-        draft = `${opening} ${sourceSentences.join(' ')} However, ${limitation}; this limitation should be considered when interpreting the findings.`;
+        const limit = papers[0] ? pick(papers[0], 'limit') : 'the evidence remains limited in scope';
+        draft = `${opening} ${evidence.map((s, i) => `${papers[i].title.split(':')[0]} shows that ${s}`).join(' ')} However, ${limit}, and this limitation should temper any strong conclusions.`;
       } else if (tone === 'synthesis') {
-        draft = `${opening} ${sourceSentences.join(' ')} Taken together, these findings frame ${section.title.toLowerCase()} as an area shaped by complementary evidence rather than a single definitive account.`;
+        draft = `${opening} ${evidence.map((s, i) => `${papers[i].title.split(':')[0]} shows that ${s}`).join(' ')} Read together, these findings frame ${section.title.toLowerCase()} as an area shaped by converging but distinct lines of evidence.`;
       } else {
-        draft = `${opening} ${sourceSentences.join(' ')} These findings provide a basis for the analysis that follows.`;
+        draft = `${opening} ${evidence.map((s, i) => `${papers[i].title.split(':')[0]} shows that ${s}`).join(' ')} These findings provide the foundation for the analysis that follows.`;
       }
     }
   }
@@ -165,12 +204,10 @@ export async function insertCitationAction(
   let outline: PaperOutline | undefined;
   let section: PaperSection | undefined;
 
-  // Case A: 4 args: (outlineId, sectionId, paperId, placeholder)
   if (arg3 && arg4) {
     outline = outlines.find(o => o.id === arg1);
     section = outline?.sections.find(s => s.id === arg2);
   } else {
-    // Case B: 2 args: (sectionId, collectionName)
     for (const o of outlines) {
       const foundSec = o.sections.find(s => s.id === arg1);
       if (foundSec) {
@@ -191,7 +228,6 @@ export async function insertCitationAction(
   let paperId = arg3;
   let placeholder = arg4;
 
-  // If paperId not specified in args, extract from placeholders in section text
   if (!paperId) {
     const text = section.humanEdit || section.agentDraft || '';
     const match = text.match(/\{\{([^}]+)\}\}/);
@@ -239,71 +275,8 @@ export async function verifyClaimAction(
   arg3: string,
   arg4?: string
 ): Promise<{ verified: boolean; confidence: 'high' | 'medium' | 'low'; evidence: string }> {
-  let sectionId = arg1;
-  let claimText = arg2;
-  let paperId = arg3;
-
-  // If 4 args: (outlineId, sectionId, claimText, paperId)
-  if (arg4) {
-    sectionId = arg2;
-    claimText = arg3;
-    paperId = arg4;
-  }
-
-  if (!claimText || !claimText.trim()) throw new Error('Claim text cannot be empty.');
-  if (!paperId || !paperId.trim()) throw new Error('Paper ID cannot be empty.');
-
-  const collections = loadCollections();
-  const allPapers = collections.flatMap(c => c.papers);
-  const paper = allPapers.find(p => p.id === paperId);
-
-  if (!paper) {
-    throw new Error(`Paper ${paperId} not found in any collection for claim verification.`);
-  }
-
-  if (!paper.extractedFindings) {
-    return {
-      verified: false,
-      confidence: 'low',
-      evidence: `No extracted findings available for paper ${paperId}. Please extract findings first.`,
-    };
-  }
-
-  const claimWords = claimText.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-  if (claimWords.length === 0) {
-    return {
-      verified: false,
-      confidence: 'low',
-      evidence: 'Claim text does not contain sufficient distinctive keywords for verification.',
-    };
-  }
-
-  const findingsCorpus = [
-    ...paper.extractedFindings.keyClaims,
-    paper.extractedFindings.methodology,
-    paper.extractedFindings.researchQuestion,
-    paper.abstract,
-  ].join(' ').toLowerCase();
-
-  const matchingWords = claimWords.filter(w => findingsCorpus.includes(w));
-  const ratio = matchingWords.length / claimWords.length;
-
-  let confidence: 'high' | 'medium' | 'low' = 'low';
-  if (ratio > 0.6) {
-    confidence = 'high';
-  } else if (ratio > 0.3) {
-    confidence = 'medium';
-  }
-
-  return {
-    verified: confidence !== 'low',
-    confidence,
-    evidence: confidence === 'high'
-      ? `Strong keyword alignment (${Math.round(ratio * 100)}% match: "${matchingWords.slice(0, 4).join(', ')}") with paper findings in ${paper.title}.`
-      : confidence === 'medium'
-      ? `Moderate keyword alignment (${Math.round(ratio * 100)}%) with paper findings. Partial evidence confirmed.`
-      : `Limited keyword alignment (${Math.round(ratio * 100)}%). Manual inspection against ${paper.title} is recommended.`,
-  };
+  const { verifyClaimAction: verifyWithFullText } = await import('@/actions/papers');
+  return verifyWithFullText(arg1, arg2, arg3, arg4);
 }
 
 export async function suggestTransitionAction(
@@ -314,7 +287,6 @@ export async function suggestTransitionAction(
   let fromSectionId = arg1;
   let toSectionId = arg2;
 
-  // If 3 args: (outlineId, fromSectionId, toSectionId)
   if (arg3) {
     fromSectionId = arg2;
     toSectionId = arg3;

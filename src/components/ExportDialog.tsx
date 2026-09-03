@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Paper, PaperOutline } from '@/types';
 import { Download, FileDown, FileText, CheckCircle, Loader2 } from 'lucide-react';
-import { formatAPACitation, formatIEEECitation } from '@/lib/citations';
+import { formatAPACitation, formatBibtexCitation, formatIEEECitation } from '@/lib/citations';
 import { loadCollections } from '@/lib/storage';
 import { buildDocxBlob, resolveSectionText, CitationFormat } from '@/lib/exportDocx';
 
@@ -14,7 +14,7 @@ interface ExportDialogProps {
   disabled?: boolean;
 }
 
-type ExportFormat = 'markdown' | 'docx';
+type ExportFormat = 'markdown' | 'docx' | 'bibtex';
 
 export function ExportDialog({ outline, disabled }: ExportDialogProps) {
   const [open, setOpen] = useState(false);
@@ -65,10 +65,23 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
   const handleDownload = async () => {
     if (!outline) return;
     setError(null);
+
     if (exportFormat === 'markdown') {
       triggerDownload(new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' }), 'md');
       return;
     }
+
+    if (exportFormat === 'bibtex') {
+      const bibSource = citedPapers.length > 0 ? citedPapers : allPapers;
+      if (bibSource.length === 0) {
+        setError('No papers available to export as BibTeX.');
+        return;
+      }
+      const bibContent = bibSource.map(formatBibtexCitation).join('\n\n');
+      triggerDownload(new Blob([bibContent], { type: 'text/plain;charset=utf-8' }), 'bib');
+      return;
+    }
+
     setExporting(true);
     try {
       const blob = await buildDocxBlob({
@@ -113,6 +126,7 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
                 className="w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-xs text-neutral-200">
                 <option value="markdown">Markdown (.md)</option>
                 <option value="docx">Word (.docx)</option>
+                <option value="bibtex">BibTeX (.bib)</option>
               </select>
             </label>
             <label className="space-y-1 text-neutral-300">
@@ -141,7 +155,9 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
               : downloaded ? <CheckCircle className="w-3.5 h-3.5 mr-1" />
               : <FileText className="w-3.5 h-3.5 mr-1" />}
             {exporting ? 'Generating...' : downloaded ? 'Downloaded'
-              : exportFormat === 'docx' ? 'Download .docx' : 'Download .md'}
+              : exportFormat === 'docx' ? 'Download .docx'
+              : exportFormat === 'bibtex' ? 'Download .bib'
+              : 'Download .md'}
           </Button>
         </DialogFooter>
       </DialogContent>

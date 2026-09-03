@@ -1,6 +1,9 @@
 import { Paper, ExtractedFindings, PaperCollection, CollectionPaper } from '@/types';
 import { searchArxiv, fetchPaperAbstract, fetchPaperById } from '@/lib/arxiv';
 import { loadCollections, saveCollections } from '@/lib/storage';
+import { getFullText, splitSentences, tokenize } from '@/lib/fulltext';
+
+const NOT_STATED = 'Not explicitly stated';
 
 export async function searchPapersAction(
   queryOrInput: string | { query: string; max_results?: number },
@@ -21,6 +24,31 @@ export async function searchPapersAction(
   }
 }
 
+/** Analyze full text when available (falls back to abstract) with sentence-level heuristics. */
+function analyzePaperText(fullText: string | null, abstract: string): Omit<ExtractedFindings, 'paperId'> {
+  const sentences = splitSentences(fullText || abstract);
+  const find = (re: RegExp, cap = 320) => sentences.find(s => re.test(s))?.slice(0, cap) || NOT_STATED;
+  const findAll = (re: RegExp, cap: number, limit: number) =>
+    sentences.filter(s => re.test(s)).slice(0, limit).map(s => s.slice(0, cap));
+
+  return {
+    researchQuestion: find(/\b(we (ask|investigate|study|examine|explore|address)|this paper (asks|investigates|studies|examines)|research question|we consider the)\b/i),
+    methodology: find(/\b(we (propose|introduce|present|develop|design|implement|build|conduct|evaluate)|our (approach|method|system|framework|design|prototype)|we use|we adapt|we extend)\b/i),
+    keyClaims: (() => {
+      const claims = findAll(/\b(results? (show|indicate|demonstrate|suggest|reveal)|we (show|demonstrate|find|observe|report|prove)|our (results|findings|evaluation|experiments) (show|indicate|demonstrate)|improve|outperform|reduce[sd]?|increase[sd]?)\b/i, 260, 3);
+      return claims.length > 0 ? claims : [NOT_STATED];
+    })(),
+    limitations: (() => {
+      const lims = findAll(/\b(limitation|future work|does not|do not|cannot|unable|fails to|threats? to validity|remain[sd]? (unclear|open)|restricted to|only (consider|support|evaluate))\b/i, 260, 2);
+      return lims.length > 0 ? lims : [NOT_STATED];
+    })(),
+    conclusionSummary: (() => {
+      const tail = sentences.slice(-5).join(' ');
+      return tail ? tail.slice(0, 420) : NOT_STATED;
+    })(),
+  };
+}
+
 export async function extractFindingsAction(paperId: string, _depth?: string): Promise<ExtractedFindings> {
   if (!paperId || !paperId.trim()) {
     throw new Error('Paper ID cannot be empty.');
@@ -28,7 +56,7 @@ export async function extractFindingsAction(paperId: string, _depth?: string): P
 
   const normalizedId = paperId.trim();
 
-  // Check if findings are already cached in collections
+  // Return cached findings if present
   const collections = loadCollections();
   for (const collection of collections) {
     const found = collection.papers.find(p => p.id === normalizedId);
@@ -42,51 +70,22 @@ export async function extractFindingsAction(paperId: string, _depth?: string): P
     abstract = await fetchPaperAbstract(normalizedId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to fetch abstract for paper ${normalizedId} from arXiv: ${message}`);
+    throw new Error(`Failed to fetch paper ${normalizedId} from arXiv: ${message}`);
   }
 
-  if (!abstract || !abstract.trim()) {
-    return {
-      paperId: normalizedId,
-      researchQuestion: 'Not explicitly stated',
-      methodology: 'Not explicitly stated',
-      keyClaims: ['Not explicitly stated'],
-      limitations: ['Not explicitly stated'],
-      conclusionSummary: 'Not explicitly stated',
-    };
+  // Ground extraction in FULL TEXT when available (falls back to abstract)
+  let fullText: string | null = null;
+  try {
+    fullText = await getFullText(normalizedId);
+  } catch {
+    fullText = null;
   }
-
-  const keyClaimsMatches = [...abstract.matchAll(/(?:we (?:propose|argue|show|demonstrate|find|introduce)|our findings indicate)([^.]+)\./gi)]
-    .map(m => m[1]?.trim())
-    .filter((s): s is string => Boolean(s));
-
-  const methodologyMatches = [...abstract.matchAll(/(?:we (?:evaluate|test|implement|benchmark|analyze|design)|using|via|through)([^.]+)\./gi)]
-    .map(m => m[1]?.trim())
-    .filter((s): s is string => Boolean(s));
-
-  const researchQuestionMatches = [...abstract.matchAll(/(?:in this paper|we investigate|we study|we address|the problem of)([^.]+)\./gi)]
-    .map(m => m[1]?.trim())
-    .filter((s): s is string => Boolean(s));
-
-  const limitationsMatches = [...abstract.matchAll(/(?:limitation|challenge|future work|open question|however|remains unclear)([^.]+)\./gi)]
-    .map(m => m[1]?.trim())
-    .filter((s): s is string => Boolean(s));
-
-  const sentences = abstract.split(/\.\s+/).map(s => s.trim()).filter(Boolean);
-  const conclusionSummary = sentences.length > 0
-    ? sentences.slice(-2).join('. ') + (sentences.slice(-2).join('. ').endsWith('.') ? '' : '.')
-    : 'Not explicitly stated';
 
   const findings: ExtractedFindings = {
     paperId: normalizedId,
-    researchQuestion: researchQuestionMatches.length > 0 ? researchQuestionMatches.join('; ') : 'Not explicitly stated',
-    methodology: methodologyMatches.length > 0 ? methodologyMatches.join('; ') : 'Not explicitly stated',
-    keyClaims: keyClaimsMatches.length > 0 ? keyClaimsMatches : ['Not explicitly stated'],
-    limitations: limitationsMatches.length > 0 ? limitationsMatches : ['Not explicitly stated'],
-    conclusionSummary: conclusionSummary || 'Not explicitly stated',
+    ...analyzePaperText(fullText, abstract || ''),
   };
 
-  // If paper exists in collections, attach extracted findings
   let collectionUpdated = false;
   for (const col of collections) {
     const p = col.papers.find(paper => paper.id === normalizedId);
@@ -127,15 +126,17 @@ export async function comparePapersAction(
   const matrix = dims.flatMap(dim =>
     papers.map(p => {
       const ef = p.extractedFindings;
-      let value = 'Not explicitly stated';
+      let value = NOT_STATED;
       if (dim === 'methodology') {
-        value = ef?.methodology || 'Not explicitly stated';
+        value = ef?.methodology || NOT_STATED;
       } else if (dim === 'results' || dim === 'keyClaims') {
-        value = ef?.keyClaims[0] || 'Not explicitly stated';
+        value = ef?.keyClaims.find(c => c !== NOT_STATED) || NOT_STATED;
       } else if (dim === 'limitations') {
-        value = ef?.limitations[0] || 'Not explicitly stated';
+        value = ef?.limitations.find(c => c !== NOT_STATED) || NOT_STATED;
       } else if (dim === 'threat_model' || dim === 'dataset' || dim === 'citation_impact') {
-        value = ef?.conclusionSummary || 'Not explicitly stated';
+        value = ef?.conclusionSummary || NOT_STATED;
+      } else {
+        value = ef?.keyClaims.find(c => c !== NOT_STATED) || ef?.conclusionSummary || NOT_STATED;
       }
       return { dimension: dim, paperId: p.id, value };
     })
@@ -185,8 +186,6 @@ export async function addToCollectionAction(
   annotation = '',
   rating?: number
 ): Promise<{ success: boolean; collectionSize: number; collectionId: string }> {
-  console.log('[DEBUG] addToCollectionAction called with:', paperId, collectionName);
-
   if (!paperId || !paperId.trim()) {
     throw new Error('Paper ID cannot be empty.');
   }
@@ -204,21 +203,17 @@ export async function addToCollectionAction(
     collections.unshift(collection);
   }
 
-  // If already in collection, update annotation/rating
   const existingInCol = collection.papers.find(p => p.id === normalizedId);
   if (existingInCol) {
     if (annotation) existingInCol.userAnnotation = annotation;
     if (rating !== undefined) existingInCol.relevanceRating = rating;
     saveCollections(collections);
-    console.log('[DEBUG] Collections after save:', loadCollections());
     return { success: true, collectionSize: collection.papers.length, collectionId: collection.id };
   }
 
-  // Look in other collections first
   const allPapers = collections.flatMap(c => c.papers);
   let paper: Paper | null | undefined = allPapers.find(p => p.id === normalizedId);
 
-  // If not found in collections, fetch from arXiv by ID
   if (!paper) {
     paper = await fetchPaperById(normalizedId);
   }
@@ -236,7 +231,6 @@ export async function addToCollectionAction(
 
   collection.papers.push(collectionPaper);
   saveCollections(collections);
-  console.log('[DEBUG] Collections after save:', loadCollections());
 
   return {
     success: true,
@@ -257,4 +251,86 @@ export async function getCollectionAction(collectionIdOrName: string): Promise<P
     throw new Error(`Collection "${collectionIdOrName}" not found.`);
   }
   return collection;
+}
+
+/** Sentence-level claim verification against the paper's full text. */
+export async function verifyClaimAction(
+  arg1: string,
+  arg2: string,
+  arg3: string,
+  arg4?: string
+): Promise<{ verified: boolean; confidence: 'high' | 'medium' | 'low'; evidence: string }> {
+  let claimText = arg2;
+  let paperId = arg3;
+
+  if (arg4) {
+    claimText = arg3;
+    paperId = arg4;
+  }
+
+  if (!claimText || !claimText.trim()) throw new Error('Claim text cannot be empty.');
+  if (!paperId || !paperId.trim()) throw new Error('Paper ID cannot be empty.');
+
+  const collections = loadCollections();
+  const allPapers = collections.flatMap(c => c.papers);
+  const paper = allPapers.find(p => p.id === paperId);
+
+  if (!paper) {
+    throw new Error(`Paper ${paperId} not found in any collection for claim verification.`);
+  }
+
+  // Verify against FULL TEXT (falls back to abstract + extracted findings)
+  let corpus: string;
+  try {
+    corpus = await getFullText(paper.id);
+  } catch {
+    corpus = [
+      paper.abstract,
+      ...(paper.extractedFindings?.keyClaims || []),
+      paper.extractedFindings?.methodology || '',
+      paper.extractedFindings?.conclusionSummary || '',
+    ].join(' ');
+  }
+
+  const claimTokens = tokenize(claimText);
+  if (claimTokens.size === 0) {
+    return { verified: false, confidence: 'low', evidence: 'Claim does not contain enough distinctive content words to verify.' };
+  }
+
+  const sentences = splitSentences(corpus);
+  let bestScore = 0;
+  let bestSentence = '';
+  const evidenceHits: string[] = [];
+
+  for (const sentence of sentences) {
+    const st = tokenize(sentence);
+    if (st.size === 0) continue;
+    let overlap = 0;
+    claimTokens.forEach(t => { if (st.has(t)) overlap++; });
+    const score = overlap / claimTokens.size;
+    if (score > bestScore) {
+      bestScore = score;
+      bestSentence = sentence;
+    }
+    if (score >= 0.45 && evidenceHits.length < 2 && !evidenceHits.includes(sentence)) {
+      evidenceHits.push(sentence);
+    }
+  }
+
+  const pct = Math.round(bestScore * 100);
+  let confidence: 'high' | 'medium' | 'low' = 'low';
+  if (bestScore >= 0.55) confidence = 'high';
+  else if (bestScore >= 0.3) confidence = 'medium';
+
+  const quote = bestSentence ? `Closest source text (${pct}% word overlap): “${bestSentence.slice(0, 280)}${bestSentence.length > 280 ? '…' : ''}”` : 'No matching sentence found.';
+
+  return {
+    verified: confidence !== 'low',
+    confidence,
+    evidence: confidence === 'high'
+      ? `Supported by ${paper.title}. ${quote}`
+      : confidence === 'medium'
+      ? `Partially supported (${pct}% overlap). ${quote}`
+      : `Weak support (${pct}% overlap) — inspect ${paper.title} manually. ${quote}`,
+  };
 }

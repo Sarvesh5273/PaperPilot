@@ -1,38 +1,34 @@
-export async function generateDraftWithGemini(
-  sectionTitle: string,
-  tone: string,
-  papers: Array<{
-    title: string;
-    authors: string[];
-    abstract: string;
-    published: string;
-    id: string;
-  }>
-): Promise<string> {
-  const response = await fetch(
-    '/api/gemini',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sectionTitle,
-        tone,
-        papers,
-      }),
-    }
-  );
+import { ExtractedFindings } from '@/types';
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => null) as { error?: string } | null;
-    throw new Error(error?.error || `Gemini API error: ${response.status}`);
+export interface DraftSource {
+  id: string;
+  title: string;
+  authors: string[];
+  published: string;
+  abstract: string;
+  findings?: ExtractedFindings;
+}
+
+export interface DraftInput {
+  sectionTitle: string;
+  tone?: string;
+  papers: DraftSource[];
+  sectionGuidance?: string;
+}
+
+export async function generateDraftWithGemini(input: DraftInput): Promise<string> {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Gemini request failed (${res.status})`);
   }
-
-  const data = await response.json() as { text?: string };
-  const text = data.text?.trim();
-
-  if (!text) {
-    throw new Error('Gemini returned empty response');
+  if (!data.draft) {
+    throw new Error('Gemini returned an empty draft');
   }
-
-  return text;
+  return data.draft;
 }
