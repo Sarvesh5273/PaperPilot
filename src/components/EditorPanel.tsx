@@ -15,8 +15,8 @@ import { loadOutlines, saveOutlines } from '@/lib/storage';
 type PaperType = 'literature_review' | 'research_article' | 'thesis_chapter';
 
 const PAPER_TYPE_LABELS: Record<PaperType, string> = {
-  literature_review: 'Literature review',
-  research_article: 'Research article',
+  research_article: 'Research article (IEEE / Conference)',
+  literature_review: 'Literature review (Survey paper)',
   thesis_chapter: 'Thesis chapter',
 };
 
