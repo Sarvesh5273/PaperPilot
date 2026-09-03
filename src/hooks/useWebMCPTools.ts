@@ -154,6 +154,9 @@ export function useWebMCPTools() {
       try {
         const result = await addToCollectionAction(input.paper_id, input.collection_name, input.annotation || '', input.relevance_rating || 3);
         window.dispatchEvent(new CustomEvent('paperpilot:collections-changed'));
+        window.dispatchEvent(new CustomEvent('paperpilot:active-collection-changed', {
+          detail: { collectionId: result.collectionId, collectionName: input.collection_name },
+        }));
         logToolCall('add_to_collection', input, result, Date.now() - start);
         return result;
       } catch (err) {

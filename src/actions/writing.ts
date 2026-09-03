@@ -45,7 +45,7 @@ export async function generateOutlineAction(
   };
 
   const existingOutlines = loadOutlines();
-  saveOutlines([...existingOutlines, outline]);
+  saveOutlines([outline, ...existingOutlines]);
   return outline;
 }
 
