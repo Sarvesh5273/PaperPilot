@@ -29,7 +29,7 @@ Instead of copying and pasting abstract after abstract, you simply ask ChatGPT t
 
 <div align="center">
   <!-- Replace these placeholder paths with actual screenshots of your app -->
-  <img src="./docs/ui-dashboard.png" alt="PaperPilot Dashboard" width="400" />
+  <img src="./docs/ui-dashboard.png" alt="PaperPilot Dashboard" width="800" />
   <br>
   <em>The sleek, responsive dashboard showing your research collections.</em>
 </div>
@@ -37,10 +37,17 @@ Instead of copying and pasting abstract after abstract, you simply ask ChatGPT t
 <br>
 
 <div align="center">
-  <img src="./docs/ui-webmcp-interaction.png" alt="WebMCP Interaction" width="400" />
-  <img src="./docs/ui-latex-export.png" alt="LaTeX Export" width="400" />
+  <img src="./docs/ui-webmcp-interaction.png" alt="WebMCP Interaction" width="800" />
   <br>
-  <em>Left: ChatGPT autonomously utilizing PaperPilot's WebMCP tools. Right: The production-ready LaTeX export panel.</em>
+  <em>ChatGPT autonomously utilizing PaperPilot's WebMCP tools to draft and compare sections.</em>
+</div>
+
+<br>
+
+<div align="center">
+  <img src="./docs/ui-latex-export.png" alt="LaTeX Export" width="800" />
+  <br>
+  <em>The production-ready LaTeX export panel generating 100% compilable Overleaf code.</em>
 </div>
 
 ---
