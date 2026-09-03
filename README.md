@@ -1,6 +1,8 @@
 <div align="center">
-  # PaperPilot
-  **The Agent-Native Academic Research Studio**
+  <img src="./public/logo.svg" alt="PaperPilot Logo" width="80" height="80" />
+  
+  <h1>PaperPilot</h1>
+  <p><b>The Agent-Native Academic Research Studio</b></p>
 
   ![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
   ![React](https://img.shields.io/badge/React-18-blue?style=for-the-badge&logo=react)
