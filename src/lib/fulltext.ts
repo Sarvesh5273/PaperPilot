@@ -19,9 +19,12 @@ export async function getFullText(arxivId: string): Promise<string> {
 export function splitSentences(text: string): string[] {
   return text
     .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+    // Split on punctuation followed by a space and a capital letter, 
+    // ensuring the word before punctuation is at least 3 chars long to avoid abbreviations like "e.g.", "Fig.", "al."
+    .split(/(?<=[a-z]{3,}[.!?])\s+(?=[A-Z0-9])/i)
     .map(s => s.trim())
-    .filter(s => s.length > 20 && s.length < 500);
+    // Increase the max length to 1200 characters so complex academic sentences aren't silently dropped
+    .filter(s => s.length > 20 && s.length < 1200);
 }
 
 export function tokenize(text: string): Set<string> {

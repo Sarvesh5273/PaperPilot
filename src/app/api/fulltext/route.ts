@@ -12,12 +12,23 @@ function htmlToText(html: string): string {
   let text = html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, ' ')
-    // Extract raw LaTeX from MathML to prevent duplicate presentation+source text
-    .replace(/<math[^>]*>[\s\S]*?<annotation[^>]*encoding="application\/x-tex"[^>]*>([\s\S]*?)<\/annotation>[\s\S]*?<\/math>/gi, '$$$1$$');
-  const article = text.match(/<article[\s\S]*?<\/article>/i);
+    .replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, ' ');
+
+  // Attempt to extract the main article body if available
+  const article = text.match(/<article[\s\S]*?<\/article>/i) || 
+                  text.match(/<div[^>]*class="[^"]*ltx_document[^"]*"[\s\S]*?<\/div>\s*<\/div>/i);
   if (article) text = article[0];
+
+  // Aggressively truncate before References, Bibliography, Acknowledgments, or Appendices 
+  // so we don't pollute the context with irrelevant boilerplate.
+  const truncMatch = text.match(/(<h[1-4][^>]*>(?:\s*<[^>]+>\s*)*(?:\d+\.?\s*)?(?:References|Bibliography|Acknowledgments|Acknowledgements|Appendix|Broader Impact)|<section[^>]*class="[^"]*ltx_bibliography)/i);
+  if (truncMatch) {
+    text = text.substring(0, truncMatch.index);
+  }
+
   return text
+    // Extract raw LaTeX from MathML to prevent duplicate presentation+source text
+    .replace(/<math[^>]*>[\s\S]*?<annotation[^>]*encoding="application\/x-tex"[^>]*>([\s\S]*?)<\/annotation>[\s\S]*?<\/math>/gi, '$$$1$$')
     .replace(/<\/(p|div|section|h1|h2|h3|h4|li|tr)>/gi, '\n\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')

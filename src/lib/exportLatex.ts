@@ -71,29 +71,6 @@ export function buildLatexDocument({
   // Track all keys that get cited in body text
   const referencedKeys = new Set<string>();
 
-  const findCiteKey = (identifier: string): string => {
-    const raw = identifier.trim().toLowerCase();
-    // 1. Direct match by ID
-    const byId = citedPapers.find(p => p.id.toLowerCase() === raw || p.id.replace(/[^a-zA-Z0-9]/g, '_') === raw);
-    if (byId) return keyMap.get(byId.id)!;
-
-    // 2. Match by author surname (e.g. "Li", "Kelvin", "Santos")
-    const byAuthor = citedPapers.find(p =>
-      p.authors.some(a => {
-        const surname = a.split(' ').pop()?.toLowerCase();
-        return surname && raw.includes(surname);
-      })
-    );
-    if (byAuthor) return keyMap.get(byAuthor.id)!;
-
-    // 3. Match by title keyword
-    const byTitle = citedPapers.find(p => raw.includes(p.title.toLowerCase().slice(0, 15)));
-    if (byTitle) return keyMap.get(byTitle.id)!;
-
-    // 4. Default to first paper or fallback
-    return citedPapers[0] ? keyMap.get(citedPapers[0].id)! : 'ref_1';
-  };
-
   const resolveLatexSection = (text: string): string => {
     let out = text;
 

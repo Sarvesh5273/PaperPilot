@@ -27,10 +27,13 @@ export function ExportDialog({ outline, disabled }: ExportDialogProps) {
   const [citationFormat, setCitationFormat] = useState<CitationFormat>('ieee');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('latex');
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const allPapers = useMemo(() => loadCollections().flatMap(c => c.papers) as Paper[], [open]);
 
-  const approved = outline?.sections.filter(s => s.status === 'approved') || [];
-  const sectionsToExport = outline ? (approved.length > 0 ? approved : outline.sections) : [];
+  const sectionsToExport = useMemo(() => {
+    const approved = outline?.sections.filter(s => s.status === 'approved') || [];
+    return outline ? (approved.length > 0 ? approved : outline.sections) : [];
+  }, [outline]);
 
   const citedPapers = useMemo(() => {
     if (!outline) return [] as Paper[];

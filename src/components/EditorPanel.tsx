@@ -9,7 +9,7 @@ import { useCollections } from '@/hooks/useCollections';
 import { generateOutlineAction } from '@/actions/writing';
 import { SectionCard } from './SectionCard';
 import { ExportDialog } from './ExportDialog';
-import { FileText, PlusCircle, CheckCircle, Clock, Library, ArrowRight, Loader2, Check, X, Sparkles } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Library, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { loadOutlines, saveOutlines } from '@/lib/storage';
 
 type PaperType = 'literature_review' | 'research_article' | 'thesis_chapter';

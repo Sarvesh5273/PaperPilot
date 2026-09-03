@@ -27,24 +27,27 @@ export async function searchPapersAction(
 /** Analyze full text when available (falls back to abstract) with sentence-level heuristics. */
 function analyzePaperText(fullText: string | null, abstract: string): Omit<ExtractedFindings, 'paperId'> {
   const sentences = splitSentences(fullText || abstract);
-  const find = (re: RegExp, cap = 320) => sentences.find(s => re.test(s))?.slice(0, cap) || NOT_STATED;
+  // Increase cap to 800 chars so we capture the full context of the claim, not just a truncated fragment
+  const find = (re: RegExp, cap = 800) => sentences.find(s => re.test(s))?.slice(0, cap) || NOT_STATED;
   const findAll = (re: RegExp, cap: number, limit: number) =>
     sentences.filter(s => re.test(s)).slice(0, limit).map(s => s.slice(0, cap));
 
   return {
-    researchQuestion: find(/\b(we (ask|investigate|study|examine|explore|address)|this paper (asks|investigates|studies|examines)|research question|we consider the)\b/i),
+    researchQuestion: find(/\b(we (ask|investigate|study|examine|explore|address)|this paper (asks|investigates|studies|examines|focuses on)|research question|we consider the)\b/i),
     methodology: find(/\b(we (propose|introduce|present|develop|design|implement|build|conduct|evaluate)|our (approach|method|system|framework|design|prototype)|we use|we adapt|we extend)\b/i),
     keyClaims: (() => {
-      const claims = findAll(/\b(results? (show|indicate|demonstrate|suggest|reveal)|we (show|demonstrate|find|observe|report|prove)|our (results|findings|evaluation|experiments) (show|indicate|demonstrate)|improve|outperform|reduce[sd]?|increase[sd]?)\b/i, 260, 3);
+      const claims = findAll(/\b(results? (show|indicate|demonstrate|suggest|reveal)|we (show|demonstrate|find|observe|report|prove)|our (results|findings|evaluation|experiments) (show|indicate|demonstrate)|improve|outperform|reduce[sd]?|increase[sd]?|achieve[sd]?)\b/i, 800, 3);
       return claims.length > 0 ? claims : [NOT_STATED];
     })(),
     limitations: (() => {
-      const lims = findAll(/\b(limitation|future work|does not|do not|cannot|unable|fails to|threats? to validity|remain[sd]? (unclear|open)|restricted to|only (consider|support|evaluate))\b/i, 260, 2);
+      const lims = findAll(/\b(limitation|future work|does not|do not|cannot|unable|fails to|threats? to validity|remain[sd]? (unclear|open)|restricted to|only (consider|support|evaluate)|assume[sd]?)\b/i, 800, 2);
       return lims.length > 0 ? lims : [NOT_STATED];
     })(),
     conclusionSummary: (() => {
+      // Now that bibliographies and appendices are strictly stripped in the fulltext api,
+      // the last 5 sentences are highly likely to be the actual conclusion of the paper.
       const tail = sentences.slice(-5).join(' ');
-      return tail ? tail.slice(0, 420) : NOT_STATED;
+      return tail ? tail.slice(0, 1000) : NOT_STATED;
     })(),
   };
 }
@@ -56,35 +59,35 @@ export async function extractFindingsAction(paperId: string, _depth?: string): P
 
   const normalizedId = paperId.trim();
 
-  // Return cached findings if present (require version 2 to avoid duplicate MathML bugs)
+  // Return cached findings if present (require version 3 to avoid boilerplate bugs)
   const collections = loadCollections();
   for (const collection of collections) {
     const found = collection.papers.find(p => p.id === normalizedId);
-    if (found?.extractedFindings && (found.extractedFindings as any).version === 2) {
+    if (found?.extractedFindings && (found.extractedFindings as any).version === 3) {
       return found.extractedFindings;
     }
   }
 
+  // Fetch abstracts (always available via arxiv API)
   let abstract = '';
   try {
     abstract = await fetchPaperAbstract(normalizedId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to fetch paper ${normalizedId} from arXiv: ${message}`);
+    console.warn(`Failed to fetch abstract for ${normalizedId}`);
   }
 
-  // Ground extraction in FULL TEXT when available (falls back to abstract)
+  // Attempt to fetch full text HTML
   let fullText: string | null = null;
   try {
     fullText = await getFullText(normalizedId);
-  } catch {
-    fullText = null;
+  } catch (err) {
+    console.warn(`Full text not available for ${normalizedId}, falling back to abstract.`);
   }
 
   const findings: ExtractedFindings = {
     paperId: normalizedId,
     ...analyzePaperText(fullText, abstract || ''),
-    version: 2,
+    version: 3,
   } as ExtractedFindings;
 
   let collectionUpdated = false;
