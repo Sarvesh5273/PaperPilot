@@ -3,20 +3,30 @@ import { CitationFormat } from './exportDocx';
 
 /** Escape special LaTeX characters and prevent math-mode runaway */
 export function sanitizeLatexText(text: string): string {
-  // 1. Strip raw unescaped $ delimiters so LaTeX never gets trapped in math mode
-  let clean = text.replace(/\$/g, '');
+  // 1. Temporarily hide matched $...$ math blocks so they don't get escaped
+  const mathBlocks: string[] = [];
+  let clean = text.replace(/\$([^\$]+)\$/g, (match) => {
+    mathBlocks.push(match);
+    return `__MATH_BLOCK_${mathBlocks.length - 1}__`;
+  });
 
-  // 2. Escape special LaTeX reserved characters
+  // 2. Escape special LaTeX reserved characters on the non-math text
   clean = clean
-    .replace(/\\/g, '') // remove stray raw backslashes
+    .replace(/\\(?!_)/g, '') // remove stray raw backslashes (but don't double escape if already processed)
     .replace(/&/g, '\\&')
     .replace(/%/g, '\\%')
     .replace(/#/g, '\\#')
     .replace(/_/g, '\\_')
     .replace(/\^/g, '\\textasciicircum{}')
-    .replace(/~/g, ' ');
+    .replace(/~/g, ' ')
+    .replace(/\$/g, '\\$'); // Escape any remaining UNMATCHED stray $ signs!
 
-  // 3. Normalize quotes to standard LaTeX typographic quotes
+  // 3. Restore the math blocks
+  clean = clean.replace(/__MATH_BLOCK_(\d+)__/g, (_match, index) => {
+    return mathBlocks[parseInt(index, 10)];
+  });
+
+  // 4. Normalize quotes to standard LaTeX typographic quotes
   clean = clean
     .replace(/"([^"]*)"/g, "``$1''")
     .replace(/“([^”]*)”/g, "``$1''")
@@ -87,36 +97,41 @@ export function buildLatexDocument({
   const resolveLatexSection = (text: string): string => {
     let out = text;
 
-    // Replace explicit {{paperId}} placeholders with safe tokens
-    citedPapers.forEach((p) => {
-      const citeKey = keyMap.get(p.id)!;
-      const token = `__PP_CITE_${citeKey}__`;
-      out = out.split(`{{${p.id}}}`).join(token);
-      out = out.split(p.id).join(token);
-    });
-
-    // Replace author-year or title placeholders like {{Li et al., 2026}}
+    // 1. Replace author-year or title placeholders like {{Li et al., 2026}} with ID placeholders to normalize them
     out = out.replace(/\{\{([^}]+)\}\}/g, (_m, rawId: string) => {
-      const citeKey = findCiteKey(rawId);
-      return `__PP_CITE_${citeKey}__`;
+      // Find the best match paper ID
+      const byId = citedPapers.find(p => p.id.toLowerCase() === rawId.trim().toLowerCase() || p.id.replace(/[^a-zA-Z0-9]/g, '_') === rawId.trim().toLowerCase());
+      if (byId) return `{{${byId.id}}}`;
+      
+      const byAuthor = citedPapers.find(p => p.authors.some(a => {
+        const surname = a.split(' ').pop()?.toLowerCase();
+        return surname && rawId.toLowerCase().includes(surname);
+      }));
+      if (byAuthor) return `{{${byAuthor.id}}}`;
+      
+      return `{{${citedPapers[0]?.id || 'ref'}}}`;
     });
 
-    // Clean up author redundancy: "Li et al. (__PP_CITE...__)" -> "__PP_CITE...__"
-    out = out.replace(/\((__PP_CITE_[^_]+__)\)/g, '$1');
-    out = out.replace(/([A-Z][a-zA-Z\s]+ et al\.)\s*\(?(__PP_CITE_[^_]+__)\)?/gi, '$1 $2');
-
-    // Safely sanitize the entire section text (escapes &, %, _, removes rogue $)
+    // 2. Safely sanitize the entire section text (escapes &, %, _, but preserves math $...$)
     out = sanitizeLatexText(out);
 
-    // Replace citation tokens with standard LaTeX \cite{key}
-    out = out.replace(/__PP_CITE_([^_]+)__/g, (_m, k: string) => {
-      referencedKeys.add(k);
-      return `~\\cite{${k}}`;
+    // 3. Now insert the LaTeX citations! The placeholders {{paperId}} are unharmed because { and } were not escaped.
+    citedPapers.forEach((p) => {
+      const citeKey = keyMap.get(p.id)!;
+      const placeholder = `\\{\\{${sanitizeLatexText(p.id)}\\}\\}`;
+      
+      // Match the sanitized placeholder
+      const placeholderRegex = new RegExp(placeholder, 'g');
+      out = out.replace(placeholderRegex, () => {
+        referencedKeys.add(citeKey);
+        return `~\\cite{${citeKey}}`;
+      });
     });
 
     // Post-cleanup of double citations or parens
     out = out.replace(/\(~?\\cite\{([^}]+)\}\)/g, '~\\cite{$1}');
     out = out.replace(/~{2,}\\cite/g, '~\\cite');
+    out = out.replace(/([A-Z][a-zA-Z\s]+ et al\.)\s*~?\\cite/gi, '$1 ~\\cite');
     out = out.replace(/et al\.,?\s+et al\./gi, 'et al.');
 
     // Split into clean paragraphs
