@@ -14,8 +14,16 @@
 
   *PaperPilot transforms academic research and literature review writing into a seamlessly synchronized human-agent collaboration. Built for the OpenAI WebMCP Challenge.*
 
-  [Live Demo](#) • [Devpost Submission](#) • [Watch Video](#)
+  [Live Demo](https://paperpilot-omega.vercel.app) • [Devpost Submission](https://devpost.com/software/paperpilot-1t3au4?ref_content=user-portfolio&ref_feature=in_progress) • [Watch Video](https://youtu.be/NGLwVCdUI90?si=IImVKTEFFeed6B18)
 </div>
+
+---
+
+## Project Links
+
+- **Live Demo:** [paperpilot-omega.vercel.app](https://paperpilot-omega.vercel.app)
+- **Demo Video:** [Watch the PaperPilot walkthrough on YouTube](https://youtu.be/NGLwVCdUI90?si=IImVKTEFFeed6B18)
+- **Devpost:** [PaperPilot submission page](https://devpost.com/software/paperpilot-1t3au4?ref_content=user-portfolio&ref_feature=in_progress) *(Devpost account sign-in may be required to view this page.)*
 
 ---
 
