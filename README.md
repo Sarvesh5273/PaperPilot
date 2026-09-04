@@ -17,16 +17,6 @@
   [Live Demo](https://paperpilot-omega.vercel.app) • [Devpost Submission](https://devpost.com/software/paperpilot-1t3au4?ref_content=user-portfolio&ref_feature=in_progress) • [Watch Video](https://youtu.be/NGLwVCdUI90?si=IImVKTEFFeed6B18)
 </div>
 
----
-
-## Project Links
-
-- **Live Demo:** [paperpilot-omega.vercel.app](https://paperpilot-omega.vercel.app)
-- **Demo Video:** [Watch the PaperPilot walkthrough on YouTube](https://youtu.be/NGLwVCdUI90?si=IImVKTEFFeed6B18)
-- **Devpost:** [PaperPilot submission page](https://devpost.com/software/paperpilot-1t3au4?ref_content=user-portfolio&ref_feature=in_progress) *(Devpost account sign-in may be required to view this page.)*
-
----
-
 ## The Vision
 
 PaperPilot is not just another wrapper around an LLM. It is an **Agent-Native System** designed specifically for academic researchers. By integrating **WebMCP**, PaperPilot exposes 11 strictly typed tools directly to ChatGPT in your browser. 
